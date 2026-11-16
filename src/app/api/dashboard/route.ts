@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import db, { ensureSchema } from '@/lib/db';
 
-//export const dynamic = 'force-dynamic';
-
 export async function GET(request: Request) {
   try {
     await ensureSchema();
@@ -11,15 +9,18 @@ export async function GET(request: Request) {
     const sessionId = searchParams.get('sessionId');
     const driverGuid = searchParams.get('driverGuid');
 
-    // 1. Leggi stato live dei server dalla tabella cloud live_status
+    // 1. Leggi stato live dei server dalla tabella cloud live_status (id = 1, colonne payload e updated_at)
     let liveServers: any[] = [];
     try {
-      const liveRes = await db.execute("SELECT payload_json, updated_at FROM live_status WHERE id = 'main'");
+      const liveRes = await db.execute('SELECT payload, updated_at FROM live_status WHERE id = 1');
       if (liveRes.rows.length > 0) {
         const row = liveRes.rows[0] as any;
-        const parsed = JSON.parse(String(row.payload_json || '[]'));
-        const updatedAt = Number(row.updated_at || 0);
-        const isStale = Date.now() - updatedAt > 180000;
+        const parsed = JSON.parse(String(row.payload || '[]'));
+        const rawUpdated = row.updated_at;
+        const updatedMs = typeof rawUpdated === 'number'
+          ? rawUpdated
+          : Date.parse(String(rawUpdated || ''));
+        const isStale = !updatedMs || Number.isNaN(updatedMs) || (Date.now() - updatedMs > 180000);
         liveServers = isStale
           ? parsed.map((s: any) => ({ ...s, online: false, players: 0, sessionPhase: 'OFFLINE', playersList: [] }))
           : parsed;
