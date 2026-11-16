@@ -15,7 +15,7 @@
     "id": "server_2",
     "name": "EPP ACEvo server #Monza #GT3 #ITA",
     "online": true,
-    "players": 6,
+    "players": 7,
     "maxPlayers": 20,
     "track": "Monza (GP)",
     "trackId": "Monza",
@@ -23,52 +23,60 @@
     "sessionPhase": "QUALIFICHE",
     "playersList": [
       {
-        "steamId": "76561198746905234",
-        "carId": "499d0ee369b7c9fc-9839657207d3b7ac",
-        "number": "4",
-        "name": "michał janowski",
-        "car": "Bmw M4 Gt3",
-        "nation": "POL"
+        "steamId": "76561198750680876",
+        "number": "-",
+        "name": "Pilota",
+        "car": "Porsche 992 Gt3 R Rennsport",
+        "carId": "4426343cfb3112f7-cb8a09719db3ad97",
+        "nation": ""
       },
       {
-        "steamId": "76561199146625065",
-        "carId": "4ff850a189a6e12d-99144b1e0fb911b0",
-        "number": "111",
-        "name": "Martin Culek",
-        "car": "Ferrari 296 Gt3",
-        "nation": "CZE"
-      },
-      {
-        "steamId": "76561199294315101",
-        "carId": "42906df9d162b45a-304a6575b629faaa",
-        "number": "74",
-        "name": "Sascha Witt",
-        "car": "Bmw M4 Gt3",
-        "nation": "DEU"
-      },
-      {
-        "steamId": "76561198119249662",
-        "carId": "4600495ac8c3b16e-1a5374125c3542b4",
-        "number": "13",
-        "name": "E. M.",
+        "steamId": "76561198071443102",
+        "number": "-",
+        "name": "Pilota",
         "car": "Audi R8 Lms Gt3 Evo 2",
-        "nation": "ITA"
+        "carId": "40ef34bf63a4bfdd-6514ebea79173db6",
+        "nation": ""
       },
       {
         "steamId": "76561197960271872",
-        "carId": "4ae7ba4316c9f36f-b500252184ca3db1",
-        "number": "1",
-        "name": "pew meeh",
-        "car": "Audi R8 Lms Gt3 Evo 2",
-        "nation": "DZA"
+        "number": "-",
+        "name": "Pilota",
+        "car": "Porsche 992 Gt3 R Rennsport",
+        "carId": "460f27f1edd0bee9-1bad46c113775088",
+        "nation": ""
       },
       {
-        "steamId": "76561198120122618",
-        "carId": "4530747c209607f1-4d61dde8946f24a8",
-        "number": "911",
-        "name": "Adam Romaniuk",
+        "steamId": "76561198603474250",
+        "carId": "4cdcebae01bfdb1c-1f022b98a034a8b2",
+        "number": "296",
+        "name": "lorenzo carnevale",
+        "car": "Ferrari 296 Gt3",
+        "nation": ""
+      },
+      {
+        "steamId": "76561198158024101",
+        "carId": "47a39fbb409a85f0-d076eeef6a469f99",
+        "number": "1",
+        "name": "FLAVIUS SEICA",
+        "car": "Audi R8 Lms Gt3 Evo 2",
+        "nation": ""
+      },
+      {
+        "steamId": "76561199800396601",
+        "carId": "4201013e45bfe5b8-8f3ac1fcd4f827ab",
+        "number": "2",
+        "name": "noah degardin",
         "car": "Porsche 992 Gt3 R Rennsport",
         "nation": ""
+      },
+      {
+        "steamId": "76561197994256616",
+        "carId": "49a52b93ff95d6f5-0843b5ab12c0dfaa",
+        "number": "3",
+        "name": "Markus Goth",
+        "car": "Porsche 992 Gt3 R Rennsport",
+        "nation": "CHE"
       }
     ]
   },
@@ -112,12 +120,29 @@
     "id": "server_6",
     "name": "EPP ACEvo server #Mount Panorama #Pratice #ITA",
     "online": true,
-    "players": 0,
+    "players": 2,
     "maxPlayers": 20,
     "track": "Mount Panorama (GP)",
     "trackId": "Mount Panorama",
     "trackLayout": "GP",
     "sessionPhase": "PRATICA",
-    "playersList": []
+    "playersList": [
+      {
+        "steamId": "76561199168427014",
+        "carId": "41e0177e9a7f6492-9c95fdffa7cdb080",
+        "number": "296",
+        "name": "Artemi Pink",
+        "car": "Ferrari 296 Gt3",
+        "nation": ""
+      },
+      {
+        "steamId": "76561199884154087",
+        "carId": "4d147bc75f11175f-1ca8a307a2de30aa",
+        "number": "911",
+        "name": "Crafty Cockney",
+        "car": "Porsche 992 Gt3 R Rennsport",
+        "nation": ""
+      }
+    ]
   }
 ]

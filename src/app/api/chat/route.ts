@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import db, { ensureSchema } from '@/lib/db';
 
-export const dynamic = 'force-dynamic';
+//export const dynamic = 'force-dynamic';
 
 function formatMs(ms: number): string {
   if (!ms || ms <= 0) return '--:--.---';
