@@ -1,0 +1,123 @@
+[
+  {
+    "id": "server_1",
+    "name": "EPP ACEvo server #Red Bull Ring #GT3 #ITA",
+    "online": true,
+    "players": 0,
+    "maxPlayers": 20,
+    "track": "Red Bull Ring (GP)",
+    "trackId": "Red Bull Ring",
+    "trackLayout": "GP",
+    "sessionPhase": "QUALIFICHE",
+    "playersList": []
+  },
+  {
+    "id": "server_2",
+    "name": "EPP ACEvo server #Monza #GT3 #ITA",
+    "online": true,
+    "players": 6,
+    "maxPlayers": 20,
+    "track": "Monza (GP)",
+    "trackId": "Monza",
+    "trackLayout": "GP",
+    "sessionPhase": "QUALIFICHE",
+    "playersList": [
+      {
+        "steamId": "76561198746905234",
+        "carId": "499d0ee369b7c9fc-9839657207d3b7ac",
+        "number": "4",
+        "name": "michał janowski",
+        "car": "Bmw M4 Gt3",
+        "nation": "POL"
+      },
+      {
+        "steamId": "76561199146625065",
+        "carId": "4ff850a189a6e12d-99144b1e0fb911b0",
+        "number": "111",
+        "name": "Martin Culek",
+        "car": "Ferrari 296 Gt3",
+        "nation": "CZE"
+      },
+      {
+        "steamId": "76561199294315101",
+        "carId": "42906df9d162b45a-304a6575b629faaa",
+        "number": "74",
+        "name": "Sascha Witt",
+        "car": "Bmw M4 Gt3",
+        "nation": "DEU"
+      },
+      {
+        "steamId": "76561198119249662",
+        "carId": "4600495ac8c3b16e-1a5374125c3542b4",
+        "number": "13",
+        "name": "E. M.",
+        "car": "Audi R8 Lms Gt3 Evo 2",
+        "nation": "ITA"
+      },
+      {
+        "steamId": "76561197960271872",
+        "carId": "4ae7ba4316c9f36f-b500252184ca3db1",
+        "number": "1",
+        "name": "pew meeh",
+        "car": "Audi R8 Lms Gt3 Evo 2",
+        "nation": "DZA"
+      },
+      {
+        "steamId": "76561198120122618",
+        "carId": "4530747c209607f1-4d61dde8946f24a8",
+        "number": "911",
+        "name": "Adam Romaniuk",
+        "car": "Porsche 992 Gt3 R Rennsport",
+        "nation": ""
+      }
+    ]
+  },
+  {
+    "id": "server_3",
+    "name": "EPP ACEvo server #Mount Panorama #GT3 #ITA",
+    "online": true,
+    "players": 0,
+    "maxPlayers": 20,
+    "track": "Mount Panorama (GP)",
+    "trackId": "Mount Panorama",
+    "trackLayout": "GP",
+    "sessionPhase": "QUALIFICHE",
+    "playersList": []
+  },
+  {
+    "id": "server_4",
+    "name": "EPP ACEvo server #Red Bull Ring #Pratice #ITA",
+    "online": true,
+    "players": 0,
+    "maxPlayers": 20,
+    "track": "Red Bull Ring (GP)",
+    "trackId": "Red Bull Ring",
+    "trackLayout": "GP",
+    "sessionPhase": "PRATICA",
+    "playersList": []
+  },
+  {
+    "id": "server_5",
+    "name": "EPP ACEvo server #Monza #Pratice #ITA",
+    "online": true,
+    "players": 0,
+    "maxPlayers": 20,
+    "track": "Monza (GP)",
+    "trackId": "Monza",
+    "trackLayout": "GP",
+    "sessionPhase": "PRATICA",
+    "playersList": []
+  },
+  {
+    "id": "server_6",
+    "name": "EPP ACEvo server #Mount Panorama #Pratice #ITA",
+    "online": true,
+    "players": 0,
+    "maxPlayers": 20,
+    "track": "Mount Panorama (GP)",
+    "trackId": "Mount Panorama",
+    "trackLayout": "GP",
+    "sessionPhase": "PRATICA",
+    "playersList": []
+  }
+]

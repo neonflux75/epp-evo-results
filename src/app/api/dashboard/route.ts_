@@ -1,0 +1,262 @@
+import { NextResponse } from 'next/server';
+import db from '@/lib/db';
+import fs from 'fs';
+import path from 'path';
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const trackFilter = searchParams.get('track') || 'ALL';
+  const sessionId = searchParams.get('sessionId');
+  const driverGuid = searchParams.get('driverGuid');
+
+  // 1. Leggi stato live dei server (giocatori online e pista attiva)
+  let liveServers: any[] = [];
+  try {
+    const livePath = path.join(process.cwd(), 'live_status.json');
+    if (fs.existsSync(livePath)) {
+      liveServers = JSON.parse(fs.readFileSync(livePath, 'utf-8'));
+    }
+  } catch (e) {}
+
+  // 2. Dettaglio giri veloci di un singolo pilota su tutti i tracciati e auto
+  if (driverGuid) {
+    const driverInfo = db.prepare(`
+      SELECT driver_guid, driver_name, MAX(nation) as nation
+      FROM laps
+      WHERE driver_guid = ?
+      GROUP BY driver_guid
+    `).get(driverGuid) as any;
+
+    const driverLaps = db.prepare(`
+      WITH AllBestPerTrackCar AS (
+        SELECT
+          driver_guid,
+          car_model,
+          track_name,
+          MIN(lap_time_ms) as best_lap_ms
+        FROM laps
+        WHERE is_valid = 1 AND lap_time_ms > 0
+        GROUP BY driver_guid, car_model, track_name
+      ),
+      AllBestOverallTrack AS (
+        SELECT
+          driver_guid,
+          track_name,
+          MIN(lap_time_ms) as best_lap_ms
+        FROM laps
+        WHERE is_valid = 1 AND lap_time_ms > 0
+        GROUP BY driver_guid, track_name
+      ),
+      RankedDriverLaps AS (
+        SELECT
+          l.driver_guid,
+          l.driver_name,
+          l.nation,
+          l.car_model,
+          l.track_name,
+          l.track_layout,
+          l.lap_time_ms as best_lap_ms,
+          l.sector_1_ms,
+          l.sector_2_ms,
+          l.sector_3_ms,
+          l.recorded_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY l.driver_guid, l.car_model, l.track_name
+            ORDER BY l.lap_time_ms ASC, l.id ASC
+          ) as rn
+        FROM laps l
+        WHERE l.driver_guid = ? AND l.is_valid = 1 AND l.lap_time_ms > 0
+      )
+      SELECT
+        r.driver_guid,
+        r.driver_name,
+        r.nation,
+        r.car_model,
+        r.track_name,
+        r.track_layout,
+        r.best_lap_ms,
+        r.sector_1_ms,
+        r.sector_2_ms,
+        r.sector_3_ms,
+        r.recorded_at,
+        (
+          SELECT COUNT(*) + 1
+          FROM AllBestOverallTrack o
+          WHERE o.track_name = r.track_name AND o.best_lap_ms < r.best_lap_ms
+        ) as overall_rank,
+        (
+          SELECT COUNT(*)
+          FROM AllBestOverallTrack o
+          WHERE o.track_name = r.track_name
+        ) as overall_total,
+        (
+          SELECT COUNT(*) + 1
+          FROM AllBestPerTrackCar c
+          WHERE c.track_name = r.track_name AND c.car_model = r.car_model AND c.best_lap_ms < r.best_lap_ms
+        ) as car_rank,
+        (
+          SELECT COUNT(*)
+          FROM AllBestPerTrackCar c
+          WHERE c.track_name = r.track_name AND c.car_model = r.car_model
+        ) as car_total
+      FROM RankedDriverLaps r
+      WHERE r.rn = 1
+      ORDER BY r.track_name ASC, r.best_lap_ms ASC
+    `).all(driverGuid);
+
+    return NextResponse.json({
+      driver: driverInfo || { driver_guid: driverGuid, driver_name: 'Pilota', nation: '' },
+      laps: driverLaps
+    });
+  }
+
+  // 3. Se richiesto il dettaglio di una singola sessione/gara (con griglia di partenza da qualifica precedente)
+  if (sessionId) {
+    const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId) as any;
+    const results = db.prepare('SELECT * FROM session_results WHERE session_id = ? ORDER BY position ASC').all(sessionId) as any[];
+    const laps = db.prepare('SELECT * FROM laps WHERE session_id = ? ORDER BY id ASC').all(sessionId);
+
+    let enrichedResults = results;
+
+    if (session && (session.session_type || '').toLowerCase().includes('race')) {
+      // Cerca l'ultima qualifica disputata sullo stesso server e pista prima di questa gara
+      const prevQualy = db.prepare(`
+        SELECT id FROM sessions
+        WHERE server_name = ?
+          AND track_name = ?
+          AND LOWER(session_type) LIKE '%qualif%'
+          AND (played_at < ? OR (played_at = ? AND id < ?))
+        ORDER BY played_at DESC, id DESC
+        LIMIT 1
+      `).get(session.server_name, session.track_name, session.played_at, session.played_at, session.id) as any;
+
+      const gridMap = new Map<string, number>();
+      if (prevQualy) {
+        const qualyResults = db.prepare(
+          'SELECT driver_guid, position FROM session_results WHERE session_id = ? ORDER BY position ASC'
+        ).all(prevQualy.id) as any[];
+        for (const qr of qualyResults) {
+          gridMap.set(qr.driver_guid, qr.position);
+        }
+      }
+
+      enrichedResults = results.map((r: any) => ({
+        ...r,
+        grid_position: gridMap.has(r.driver_guid) ? gridMap.get(r.driver_guid) : null
+      }));
+    }
+
+    return NextResponse.json({ session, results: enrichedResults, laps });
+  }
+
+  // 4. Elenco piste disponibili
+  const tracks = db.prepare('SELECT DISTINCT track_name FROM laps WHERE is_valid = 1 ORDER BY track_name ASC').all();
+
+  // 5. Top 100 migliori tempi validi
+  const filterClause = trackFilter !== 'ALL' ? 'AND l.track_name = ?' : '';
+  const params = trackFilter !== 'ALL' ? [trackFilter] : [];
+
+  const leaderboardQuery = `
+    WITH RankedLaps AS (
+      SELECT
+        l.driver_guid,
+        l.driver_name,
+        l.nation,
+        l.car_model,
+        l.track_name,
+        l.track_layout,
+        l.lap_time_ms as best_lap_ms,
+        l.sector_1_ms,
+        l.sector_2_ms,
+        l.sector_3_ms,
+        l.recorded_at as last_set,
+        ROW_NUMBER() OVER (
+          PARTITION BY l.driver_guid, l.car_model, l.track_name
+          ORDER BY l.lap_time_ms ASC, l.id ASC
+        ) as rn
+      FROM laps l
+      WHERE l.is_valid = 1 AND l.lap_time_ms > 0 ${filterClause}
+    )
+    SELECT
+      driver_guid,
+      driver_name,
+      nation,
+      car_model,
+      track_name,
+      track_layout,
+      best_lap_ms,
+      sector_1_ms,
+      sector_2_ms,
+      sector_3_ms,
+      last_set
+    FROM RankedLaps
+    WHERE rn = 1
+    ORDER BY best_lap_ms ASC
+    LIMIT 100
+  `;
+  const leaderboard = db.prepare(leaderboardQuery).all(...params);
+
+  // 6. Ultime 40 sessioni concluse (Gare, Qualifiche, Pratiche) con auto del vincitore/poleman
+  const sessions = db.prepare(`
+    SELECT s.*,
+      (SELECT driver_name FROM session_results WHERE session_id = s.id AND position = 1 LIMIT 1) as winner_name,
+      (SELECT car_model FROM session_results WHERE session_id = s.id AND position = 1 LIMIT 1) as winner_car
+    FROM sessions s
+    ORDER BY s.played_at DESC, s.id DESC
+    LIMIT 40
+  `).all();
+
+  // 7. Record assoluti per singola pista
+  const trackRecords = db.prepare(`
+    WITH RankedTrackLaps AS (
+      SELECT
+        track_name,
+        track_layout,
+        driver_name,
+        nation,
+        car_model,
+        lap_time_ms as record_ms,
+        ROW_NUMBER() OVER (
+          PARTITION BY track_name
+          ORDER BY lap_time_ms ASC, id ASC
+        ) as rn
+      FROM laps
+      WHERE is_valid = 1 AND lap_time_ms > 0
+    )
+    SELECT
+      track_name,
+      track_layout,
+      driver_name,
+      nation,
+      car_model,
+      record_ms
+    FROM RankedTrackLaps
+    WHERE rn = 1
+    ORDER BY track_name ASC
+  `).all();
+
+  // 8. Classifica Piloti
+  const drivers = db.prepare(`
+    SELECT
+      l.driver_guid,
+      l.driver_name,
+      MAX(l.nation) as nation,
+      COUNT(l.id) as total_laps,
+      SUM(CASE WHEN l.is_valid = 1 THEN 1 ELSE 0 END) as valid_laps,
+      MIN(CASE WHEN l.is_valid = 1 AND l.lap_time_ms > 0 THEN l.lap_time_ms ELSE NULL END) as best_ever_ms,
+      (SELECT COUNT(*) FROM session_results sr JOIN sessions s ON sr.session_id = s.id WHERE sr.driver_guid = l.driver_guid AND sr.position = 1 AND LOWER(s.session_type) LIKE '%race%') as wins
+    FROM laps l
+    GROUP BY l.driver_guid
+    ORDER BY wins DESC, valid_laps DESC
+    LIMIT 100
+  `).all();
+
+  return NextResponse.json({
+    liveServers,
+    tracks,
+    leaderboard,
+    sessions,
+    trackRecords,
+    drivers
+  });
+}
