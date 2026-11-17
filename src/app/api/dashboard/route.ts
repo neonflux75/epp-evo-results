@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import db, { ensureSchema } from '@/lib/db';
 
+const dashboardCache = new Map<string, { data: any; expiresAt: number }>();
+const CACHE_TTL_MS = 25000;
+
 export async function GET(request: Request) {
   try {
     await ensureSchema();
@@ -8,6 +11,14 @@ export async function GET(request: Request) {
     const trackFilter = searchParams.get('track') || 'ALL';
     const sessionId = searchParams.get('sessionId');
     const driverGuid = searchParams.get('driverGuid');
+
+    // Se è una richiesta standard della dashboard, usa la cache di 25s per proteggere Turso
+    if (!sessionId && !driverGuid) {
+      const cached = dashboardCache.get(trackFilter);
+      if (cached && Date.now() < cached.expiresAt) {
+        return NextResponse.json(cached.data);
+      }
+    }
 
     // 1. Leggi stato live dei server dalla tabella cloud live_status (id = 1, colonne payload e updated_at)
     let liveServers: any[] = [];
@@ -287,14 +298,21 @@ export async function GET(request: Request) {
       LIMIT 100
     `);
 
-    return NextResponse.json({
+    const responsePayload = {
       liveServers,
       tracks: tracksRes.rows,
       leaderboard: leaderboardRes.rows,
       sessions: sessionsRes.rows,
       trackRecords: trackRecordsRes.rows,
       drivers: driversRes.rows
+    };
+
+    dashboardCache.set(trackFilter, {
+      data: responsePayload,
+      expiresAt: Date.now() + CACHE_TTL_MS
     });
+
+    return NextResponse.json(responsePayload);
   } catch (err) {
     console.error('Errore API Dashboard Turso:', err);
     return NextResponse.json({ error: 'Errore connessione database Turso' }, { status: 500 });

@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+live_status.json
+
+# File temporanei e backup locali
+progetto.txt
+*.ts_
+*.tsx_
+*.js_
+*.bak

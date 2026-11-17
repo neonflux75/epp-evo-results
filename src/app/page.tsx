@@ -167,7 +167,7 @@ export default function EvoResultsDashboard() {
   useEffect(() => {
     if (!cookiesLoaded) return;
     fetchDashboard(selectedTrack);
-    const iv = setInterval(() => fetchDashboard(selectedTrack), 5000);
+    const iv = setInterval(() => fetchDashboard(selectedTrack), 30000);
     return () => clearInterval(iv);
   }, [selectedTrack, cookiesLoaded]);
 
@@ -282,7 +282,7 @@ export default function EvoResultsDashboard() {
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
               <Server className="w-4 h-4 text-red-500" /> Stato Live Server ({data.liveServers.length}) — <span className="text-gray-500 normal-case font-normal">Clicca su un server per vedere i piloti connessi</span>
             </h2>
-            <span className="text-[11px] text-gray-500">Live ogni 5s</span>
+            <span className="text-[11px] text-gray-500">Live ogni 30s</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {data.liveServers.map((srv: any) => {
