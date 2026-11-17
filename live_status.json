@@ -15,21 +15,13 @@
     "id": "server_2",
     "name": "EPP #Monza #GT3 https://epp-evo-results.vercel.app",
     "online": true,
-    "players": 9,
+    "players": 8,
     "maxPlayers": 20,
     "track": "Monza (GP)",
     "trackId": "Monza",
     "trackLayout": "GP",
     "sessionPhase": "QUALIFICHE",
     "playersList": [
-      {
-        "steamId": "76561198353124462",
-        "number": "-",
-        "name": "Pilota",
-        "car": "Bmw M4 Gt3",
-        "carId": "468fd25c1093b26f-9b19b00eaef34b80",
-        "nation": ""
-      },
       {
         "steamId": "76561198312866175",
         "number": "-",
@@ -52,7 +44,7 @@
         "number": "8",
         "name": "a b",
         "car": "Audi R8 Lms Gt3 Evo 2",
-        "nation": ""
+        "nation": "UKR"
       },
       {
         "steamId": "76561198324624644",
@@ -60,7 +52,7 @@
         "number": "818",
         "name": "Mano Lopes",
         "car": "Porsche 992 Gt3 R Rennsport",
-        "nation": ""
+        "nation": "BRA"
       },
       {
         "steamId": "76561198323120400",
@@ -84,7 +76,7 @@
         "number": "79",
         "name": "Ribonucleico",
         "car": "Audi R8 Lms Gt3 Evo 2",
-        "nation": ""
+        "nation": "BRA"
       },
       {
         "steamId": "76561199145720621",
