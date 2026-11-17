@@ -2,15 +2,17 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, Flag, Users, Timer, Activity } from 'lucide-react';
 import { setCookie, getCookie } from '@/lib/evoUtils';
+import { useLanguage, LanguageSwitcher } from '@/context/LanguageContext';
 import { LiveServersSection } from '@/components/LiveServersSection';
 import { LeaderboardSection } from '@/components/LeaderboardSection';
 import { SessionsSection } from '@/components/SessionsSection';
 import { TrackRecordsSection, DriversRosterSection } from '@/components/RecordsAndDriversSection';
 import { DriverProfileModal } from '@/components/DriverProfileModal';
-import { FeatureRequestWidget } from '@/components/FeatureRequestWidget';
 import { TelemetryChatWidget } from '@/components/TelemetryChatWidget';
+import { FeatureRequestWidget } from '@/components/FeatureRequestWidget';
 
 export default function EvoResultsDashboard() {
+  const { dict } = useLanguage();
   const [data, setData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'sessions' | 'records' | 'drivers'>('leaderboard');
   const [selectedTrack, setSelectedTrack] = useState<string>('');
@@ -87,7 +89,7 @@ export default function EvoResultsDashboard() {
   const openDriverProfile = async (guid: string, name?: string, nation?: string) => {
     if (!guid) return;
     setLoadingDriverProfile(true);
-    setSelectedDriverProfile({ driver: { driver_guid: guid, driver_name: name || 'Pilota', nation: nation || '' }, laps: [] });
+    setSelectedDriverProfile({ driver: { driver_guid: guid, driver_name: name || dict.common.driver, nation: nation || '' }, laps: [] });
     try {
       const res = await fetch(`/api/dashboard?driverGuid=${encodeURIComponent(guid)}`);
       const json = await res.json();
@@ -100,7 +102,7 @@ export default function EvoResultsDashboard() {
     return (
       <div className="min-h-screen bg-[#0b0d11] text-gray-200 flex items-center justify-center">
         <div className="flex items-center gap-3 text-red-500 font-semibold tracking-wider">
-          <Activity className="animate-spin" /> CARICAMENTO EVO RESULTS...
+          <Activity className="animate-spin" /> {dict.common.loading}
         </div>
       </div>
     );
@@ -119,30 +121,33 @@ export default function EvoResultsDashboard() {
       </div>
 
       <header className="border-b border-gray-800/80 bg-[#11141b]/95 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center font-black text-white tracking-tighter shadow-lg shadow-red-900/30">EVO</div>
             <div>
               <h1 className="text-lg font-extrabold tracking-wider text-white flex items-center gap-2">EVO <span className="text-red-500">RESULTS</span></h1>
-              <p className="text-[11px] text-gray-400 uppercase tracking-widest">Assetto Corsa EVO Telemetry & Standings</p>
+              <p className="text-[11px] text-gray-400 uppercase tracking-widest hidden sm:block">{dict.nav.subtitle}</p>
             </div>
           </div>
-          <nav className="flex items-center gap-1 sm:gap-2">
-            {[
-              { id: 'leaderboard', label: 'Top 100 Tempi', Icon: Timer },
-              { id: 'sessions', label: 'Gare & Sessioni', Icon: Flag },
-              { id: 'records', label: 'Record Piste', Icon: Trophy },
-              { id: 'drivers', label: 'Piloti', Icon: Users },
-            ].map(({ id, label, Icon }) => (
-              <button
-                key={id}
-                onClick={() => { setActiveTab(id as any); setCookie('evo_active_tab', id); }}
-                className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition ${activeTab === id ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'}`}
-              >
-                <Icon className="w-4 h-4" /> {label}
-              </button>
-            ))}
-          </nav>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <nav className="flex items-center gap-1 sm:gap-2">
+              {[
+                { id: 'leaderboard', label: dict.nav.leaderboard, Icon: Timer },
+                { id: 'sessions', label: dict.nav.sessions, Icon: Flag },
+                { id: 'records', label: dict.nav.records, Icon: Trophy },
+                { id: 'drivers', label: dict.nav.drivers, Icon: Users },
+              ].map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => { setActiveTab(id as any); setCookie('evo_active_tab', id); }}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition ${activeTab === id ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'}`}
+                >
+                  <Icon className="w-4 h-4" /> <span className="hidden md:inline">{label}</span>
+                </button>
+              ))}
+            </nav>
+            <LanguageSwitcher />
+          </div>
         </div>
       </header>
 
@@ -189,7 +194,7 @@ export default function EvoResultsDashboard() {
       </main>
 
       <DriverProfileModal profile={selectedDriverProfile} loading={loadingDriverProfile} onClose={() => setSelectedDriverProfile(null)} />
-		<FeatureRequestWidget />
+      <FeatureRequestWidget />
       <TelemetryChatWidget />
     </div>
   );

@@ -1,7 +1,8 @@
 'use client';
 import React from 'react';
 import { Server, Users, Car, X } from 'lucide-react';
-import { NationFlag, TrackPreview, OnlineViewersBadge } from './SharedUI';
+import { NationFlag, TrackPreview } from '@/lib/evoUtils';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface LiveServersSectionProps {
   liveServers: any[];
@@ -16,20 +17,35 @@ export function LiveServersSection({
   selectedLiveServerId,
   onSelectServer,
 }: LiveServersSectionProps) {
+  const { t } = useLanguage();
   const activeServerModal = liveServers.find((s: any) => s.id === selectedLiveServerId) || null;
+
+  const translatePhase = (phase?: string) => {
+    if (!phase) return '';
+    return t.liveServers.phases[phase as keyof typeof t.liveServers.phases] || phase;
+  };
 
   return (
     <>
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
-            <Server className="w-4 h-4 text-red-500" /> Stato Live Server ({liveServers.length}) —{' '}
+            <Server className="w-4 h-4 text-red-500" /> {t.liveServers.title} ({liveServers.length}) —{' '}
             <span className="text-gray-500 normal-case font-normal">
-              Clicca su un server per vedere i piloti connessi
+              {t.liveServers.clickHint}
             </span>
           </h2>
-          <OnlineViewersBadge count={onlineViewers} />
+          <div className="flex items-center gap-3 text-[11px]">
+            {typeof onlineViewers === 'number' && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {onlineViewers} {onlineViewers === 1 ? t.liveServers.userOnline : t.liveServers.usersOnline}
+              </span>
+            )}
+            <span className="text-gray-500">{t.liveServers.liveInterval}</span>
+          </div>
         </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {liveServers.map((srv: any) => {
             const count = Math.max(srv.players || 0, srv.playersList?.length || 0);
@@ -53,13 +69,15 @@ export function LiveServersSection({
                               : 'bg-sky-500/20 text-sky-400 border border-sky-500/40'
                           }`}
                         >
-                          {srv.sessionPhase}
+                          {translatePhase(srv.sessionPhase)}
                         </span>
                       )}
                       <h3 className="text-sm font-bold text-white leading-tight line-clamp-1 group-hover:text-red-400 transition">
                         {srv.name}
                       </h3>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">{srv.track || 'Circuito N/D'}</p>
+                      <p className="text-xs text-gray-400 truncate mt-0.5">
+                        {srv.track || t.common.trackFallback}
+                      </p>
                     </div>
                   </div>
                   <span
@@ -74,17 +92,17 @@ export function LiveServersSection({
                         srv.online ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'
                       }`}
                     />
-                    {srv.online ? 'ONLINE' : 'OFFLINE'}
+                    {srv.online ? t.common.online : t.common.offline}
                   </span>
                 </div>
                 <div className="mt-4 pt-3 border-t border-gray-800/80 flex items-center justify-between text-xs">
-                  <span className="text-gray-500">Clicca per lista piloti</span>
+                  <span className="text-gray-500">{t.liveServers.clickForDrivers}</span>
                   <span
                     className={`font-mono font-bold px-2 py-0.5 rounded ${
                       count > 0 ? 'bg-amber-500/15 text-amber-400' : 'bg-gray-800/80 text-gray-400'
                     }`}
                   >
-                    Piloti: {count}/{srv.maxPlayers}
+                    {t.liveServers.driversCount}: {count}/{srv.maxPlayers}
                   </span>
                 </div>
               </div>
@@ -111,11 +129,12 @@ export function LiveServersSection({
                       activeServerModal.online ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-800 text-gray-400'
                     }`}
                   >
-                    {activeServerModal.online ? activeServerModal.sessionPhase : 'OFFLINE'}
+                    {activeServerModal.online ? translatePhase(activeServerModal.sessionPhase) : t.common.offline}
                   </span>
                   <h3 className="text-base font-bold text-white mt-0.5">{activeServerModal.name}</h3>
                   <p className="text-xs text-gray-400">
-                    Circuito: <strong className="text-gray-200">{activeServerModal.track || 'N/D'}</strong> • Piloti connessi:{' '}
+                    {t.common.track}: <strong className="text-gray-200">{activeServerModal.track || t.common.trackFallback}</strong> •{' '}
+                    {t.liveServers.connectedDrivers}:{' '}
                     <strong className="text-amber-400">
                       {Math.max(activeServerModal.players || 0, activeServerModal.playersList?.length || 0)}/
                       {activeServerModal.maxPlayers}
@@ -136,9 +155,9 @@ export function LiveServersSection({
                   <table className="w-full text-left text-sm">
                     <thead className="bg-[#0e1118] text-[11px] uppercase text-gray-400">
                       <tr>
-                        <th className="py-2.5 px-3 w-16"># Gara</th>
-                        <th className="py-2.5 px-3">Pilota</th>
-                        <th className="py-2.5 px-3">Vettura</th>
+                        <th className="py-2.5 px-3 w-16">{t.liveServers.raceNumber}</th>
+                        <th className="py-2.5 px-3">{t.common.driver}</th>
+                        <th className="py-2.5 px-3">{t.common.vehicle}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
@@ -162,8 +181,8 @@ export function LiveServersSection({
               ) : (
                 <div className="py-10 text-center text-gray-400 space-y-1">
                   <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <p className="font-semibold text-gray-300">Nessun pilota presente sul server in questo momento</p>
-                  <p className="text-xs text-gray-500">Puoi riavviare o modificare questo server in tutta sicurezza.</p>
+                  <p className="font-semibold text-gray-300">{t.liveServers.noDriversTitle}</p>
+                  <p className="text-xs text-gray-500">{t.liveServers.noDriversSub}</p>
                 </div>
               )}
             </div>

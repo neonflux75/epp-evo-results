@@ -2,6 +2,7 @@
 import React from 'react';
 import { formatMs, formatGap } from '@/lib/utils';
 import { NationFlag } from './SharedUI';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface LeaderboardSectionProps {
   tracks: any[];
@@ -22,6 +23,8 @@ export function LeaderboardSection({
   onCarChange,
   onOpenDriver,
 }: LeaderboardSectionProps) {
+  const { t } = useLanguage();
+
   const availableCars = Array.from(
     new Set((leaderboard || []).map((r: any) => r.car_model).filter(Boolean))
   ).sort() as string[];
@@ -39,34 +42,32 @@ export function LeaderboardSection({
     <section className="bg-[#131720] border border-gray-800/90 rounded-xl overflow-hidden">
       <div className="p-4 border-b border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold text-white">Classifica Top 100 Migliori Tempi</h2>
-          <p className="text-xs text-gray-400">
-            Clicca su un pilota per vedere tutti i suoi giri veloci sui vari tracciati
-          </p>
+          <h2 className="text-base font-bold text-white">{t.leaderboard.title}</h2>
+          <p className="text-xs text-gray-400">{t.leaderboard.subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400">Circuito:</label>
+            <label className="text-xs text-gray-400">{t.common.track}:</label>
             <select
               value={selectedTrack}
               onChange={(e) => onTrackChange(e.target.value)}
               className="bg-[#0b0d11] border border-gray-700 text-sm text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-red-500"
             >
-              {tracks.map((t: any) => (
-                <option key={t.track_name} value={t.track_name}>
-                  {t.track_name}
+              {tracks.map((tr: any) => (
+                <option key={tr.track_name} value={tr.track_name}>
+                  {tr.track_name}
                 </option>
               ))}
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-400">Auto:</label>
+            <label className="text-xs text-gray-400">{t.common.car}:</label>
             <select
               value={effectiveSelectedCar}
               onChange={(e) => onCarChange(e.target.value)}
               className="bg-[#0b0d11] border border-gray-700 text-sm text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-red-500 max-w-[230px]"
             >
-              <option value="ALL">Tutte le auto</option>
+              <option value="ALL">{t.common.allCars}</option>
               {availableCars.map((c: string) => (
                 <option key={c} value={c}>
                   {c}
@@ -80,15 +81,15 @@ export function LeaderboardSection({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-[#0e1118] text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-800">
-              <th className="py-3 px-4 w-12">Pos</th>
-              <th className="py-3 px-4">Pilota</th>
-              <th className="py-3 px-4">Vettura</th>
-              <th className="py-3 px-4">Circuito</th>
-              <th className="py-3 px-4 text-right">Settore 1</th>
-              <th className="py-3 px-4 text-right">Settore 2</th>
-              <th className="py-3 px-4 text-right">Settore 3</th>
-              <th className="py-3 px-4 text-right">Miglior Giro</th>
-              <th className="py-3 px-4 text-right">Distacco</th>
+              <th className="py-3 px-4 w-12">{t.common.pos}</th>
+              <th className="py-3 px-4">{t.common.driver}</th>
+              <th className="py-3 px-4">{t.common.vehicle}</th>
+              <th className="py-3 px-4">{t.common.track}</th>
+              <th className="py-3 px-4 text-right">{t.common.sector1}</th>
+              <th className="py-3 px-4 text-right">{t.common.sector2}</th>
+              <th className="py-3 px-4 text-right">{t.common.sector3}</th>
+              <th className="py-3 px-4 text-right">{t.common.bestLap}</th>
+              <th className="py-3 px-4 text-right">{t.common.gap}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/60 text-sm">
@@ -110,7 +111,7 @@ export function LeaderboardSection({
                     type="button"
                     onClick={() => onOpenDriver(row.driver_guid, row.driver_name, row.nation)}
                     className="hover:text-red-400 hover:underline transition text-left cursor-pointer"
-                    title="Vedi tutti i giri veloci di questo pilota"
+                    title={t.leaderboard.driverTooltip}
                   >
                     {row.driver_name}
                   </button>
@@ -130,7 +131,7 @@ export function LeaderboardSection({
             {filteredLeaderboard.length === 0 && (
               <tr>
                 <td colSpan={9} className="py-8 text-center text-gray-500">
-                  Nessun giro valido registrato per questa selezione.
+                  {t.leaderboard.empty}
                 </td>
               </tr>
             )}

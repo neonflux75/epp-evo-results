@@ -2,20 +2,22 @@
 import React from 'react';
 import { Trophy } from 'lucide-react';
 import { NationFlag, TrackPreview, formatMs } from '@/lib/evoUtils';
+import { useLanguage } from '@/context/LanguageContext';
 
 export function TrackRecordsSection({ trackRecords }: { trackRecords: any[] }) {
+  const { t } = useLanguage();
   return (
     <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {(trackRecords || []).map((rec: any) => (
         <div key={rec.track_name} className="bg-[#131720] border border-gray-800 rounded-xl p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-red-500">Track Record</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-red-500">{t.records.badge}</span>
             <Trophy className="w-4 h-4 text-amber-400" />
           </div>
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-extrabold text-white">{rec.track_name}</h3>
-              <p className="text-xs text-gray-400">{rec.track_layout || 'Layout Standard'}</p>
+              <p className="text-xs text-gray-400">{rec.track_layout || t.records.standardLayout}</p>
             </div>
             <TrackPreview trackName={rec.track_name} className="w-20 h-12" />
           </div>
@@ -42,21 +44,22 @@ export function DriversRosterSection({
   drivers: any[];
   onOpenDriver: (guid: string, name?: string, nation?: string) => void;
 }) {
+  const { t } = useLanguage();
   return (
     <section className="bg-[#131720] border border-gray-800/90 rounded-xl overflow-hidden">
       <div className="p-4 border-b border-gray-800">
-        <h2 className="text-base font-bold text-white">Albo Piloti</h2>
-        <p className="text-xs text-gray-400">Clicca su un pilota per visualizzare i suoi migliori tempi sui circuiti</p>
+        <h2 className="text-base font-bold text-white">{t.driversRoster.title}</h2>
+        <p className="text-xs text-gray-400">{t.driversRoster.subtitle}</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-[#0e1118] text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-800">
-              <th className="py-3 px-4">Pilota</th>
-              <th className="py-3 px-4 text-center">Vittorie Gara</th>
-              <th className="py-3 px-4 text-center">Giri Validi</th>
-              <th className="py-3 px-4 text-center">Giri Totali</th>
-              <th className="py-3 px-4 text-right">Miglior Tempo Assoluto</th>
+              <th className="py-3 px-4">{t.common.driver}</th>
+              <th className="py-3 px-4 text-center">{t.driversRoster.raceWins}</th>
+              <th className="py-3 px-4 text-center">{t.driversRoster.validLaps}</th>
+              <th className="py-3 px-4 text-center">{t.driversRoster.totalLaps}</th>
+              <th className="py-3 px-4 text-right">{t.driversRoster.bestEver}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/60 text-sm">

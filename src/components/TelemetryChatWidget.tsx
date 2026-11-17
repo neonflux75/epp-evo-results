@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, Bot, X } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ChatMessage {
   id: string;
@@ -9,22 +10,19 @@ interface ChatMessage {
 }
 
 export function TelemetryChatWidget() {
+  const { t, lang } = useLanguage();
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'bot',
-      text: 'Ciao! Sono l\'assistente telemetrico di **EVO RESULTS**. Scrivi il tuo nome (es. *"Mario Rossi"*) per sapere subito la tua posizione in classifica e i tuoi migliori tempi!',
-    },
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (chatOpen && chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    setChatMessages([{ id: 'welcome', sender: 'bot', text: t.telemetryChat.welcome }]);
+  }, [lang, t.telemetryChat.welcome]);
+
+  useEffect(() => {
+    if (chatOpen && chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, chatOpen]);
 
   const sendChatMessage = async (e?: React.FormEvent) => {
@@ -41,9 +39,9 @@ export function TelemetryChatWidget() {
         body: JSON.stringify({ message: trimmed }),
       });
       const json = await res.json();
-      setChatMessages((p) => [...p, { id: (Date.now() + 1).toString(), sender: 'bot', text: json.reply || 'Nessuna risposta.' }]);
+      setChatMessages((p) => [...p, { id: (Date.now() + 1).toString(), sender: 'bot', text: json.reply || t.telemetryChat.noReply }]);
     } catch {
-      setChatMessages((p) => [...p, { id: (Date.now() + 1).toString(), sender: 'bot', text: 'Errore di connessione con il server.' }]);
+      setChatMessages((p) => [...p, { id: (Date.now() + 1).toString(), sender: 'bot', text: t.telemetryChat.connError }]);
     } finally {
       setChatLoading(false);
     }
@@ -54,9 +52,7 @@ export function TelemetryChatWidget() {
       <div key={i} className={i > 0 ? 'mt-1' : ''}>
         {line.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
           part.startsWith('**') && part.endsWith('**') ? (
-            <strong key={j} className="text-white font-bold">
-              {part.slice(2, -2)}
-            </strong>
+            <strong key={j} className="text-white font-bold">{part.slice(2, -2)}</strong>
           ) : (
             <span key={j}>{part}</span>
           )
@@ -72,8 +68,8 @@ export function TelemetryChatWidget() {
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5 text-white" />
               <div>
-                <h4 className="text-sm font-bold text-white leading-none">Assistente Tempi EVO</h4>
-                <span className="text-[10px] text-red-200">Cerca posizione e giri veloci</span>
+                <h4 className="text-sm font-bold text-white leading-none">{t.telemetryChat.headerTitle}</h4>
+                <span className="text-[10px] text-red-200">{t.telemetryChat.headerSubtitle}</span>
               </div>
             </div>
             <button onClick={() => setChatOpen(false)} className="p-1 rounded-lg hover:bg-black/20 text-white transition">
@@ -83,13 +79,7 @@ export function TelemetryChatWidget() {
           <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-[#0b0d11]/90 text-xs">
             {chatMessages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[85%] rounded-xl px-3 py-2 leading-relaxed ${
-                    msg.sender === 'user'
-                      ? 'bg-red-600 text-white rounded-br-none'
-                      : 'bg-[#171c28] text-gray-200 border border-gray-800 rounded-bl-none'
-                  }`}
-                >
+                <div className={`max-w-[85%] rounded-xl px-3 py-2 leading-relaxed ${msg.sender === 'user' ? 'bg-red-600 text-white rounded-br-none' : 'bg-[#171c28] text-gray-200 border border-gray-800 rounded-bl-none'}`}>
                   {msg.sender === 'bot' ? renderFormattedText(msg.text) : msg.text}
                 </div>
               </div>
@@ -97,7 +87,7 @@ export function TelemetryChatWidget() {
             {chatLoading && (
               <div className="flex justify-start">
                 <div className="bg-[#171c28] text-gray-400 border border-gray-800 rounded-xl rounded-bl-none px-3 py-2 text-xs animate-pulse">
-                  Controllo la telemetria...
+                  {t.telemetryChat.thinking}
                 </div>
               </div>
             )}
@@ -108,25 +98,18 @@ export function TelemetryChatWidget() {
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Es. Mario Rossi o Posizione Imola..."
+              placeholder={t.telemetryChat.placeholder}
               className="flex-1 bg-[#0b0d11] border border-gray-700 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
             />
-            <button
-              type="submit"
-              disabled={chatLoading || !chatInput.trim()}
-              className="p-2 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white transition"
-            >
+            <button type="submit" disabled={chatLoading || !chatInput.trim()} className="p-2 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white transition">
               <Send className="w-4 h-4" />
             </button>
           </form>
         </div>
       ) : (
-        <button
-          onClick={() => setChatOpen(true)}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm px-4 py-3 rounded-full shadow-lg shadow-red-900/40 transition transform hover:scale-105"
-        >
+        <button onClick={() => setChatOpen(true)} className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm px-4 py-3 rounded-full shadow-lg shadow-red-900/40 transition transform hover:scale-105">
           <MessageSquare className="w-4 h-4" />
-          <span>Assistente Tempi</span>
+          <span>{t.telemetryChat.buttonLabel}</span>
         </button>
       )}
     </div>
