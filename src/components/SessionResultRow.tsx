@@ -38,7 +38,7 @@ export function SessionResultRow({
           <div className="inline-flex items-center gap-1.5">
             {isDsq ? (
               <span
-                title={t.sessions.disqualified}
+                title={t.sessions.filters.disqualified}
                 className="px-2 py-0.5 rounded bg-red-600/25 text-red-400 border border-red-500/50 text-xs font-extrabold uppercase tracking-wider"
               >
                 DSQ
@@ -89,7 +89,7 @@ export function SessionResultRow({
             <NationFlag nation={r.nation} />
             {penaltySec > 0 && (
               <span
-                title={t.sessions.penaltyTooltip.replace('{sec}', String(penaltySec))}
+                title={t.sessions.filters.penaltyTooltip.replace('{sec}', String(penaltySec))}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-400 font-mono text-[11px] font-bold"
               >
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
