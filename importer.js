@@ -410,9 +410,21 @@ async function lookupDriverBySteamId(steamId) {
   return null;
 }
 
+function parseLogTimestampMs(line) {
+  const m = line.match(/^\[(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\.(\d{3})\]/);
+  if (!m) return null;
+  const d = new Date(`${m[1]}T${m[2]}.${m[3]}`);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
 async function parseLiveLog(logPath, isRaceWeekend) {
   let currentPlayers = 0;
   let sessionPhase = isRaceWeekend ? 'QUALIFICHE' : 'PRATICA';
+  let qualyDurationMs = 600000;
+  let raceDurationMs = 1200000;
+  let sessionStartMs = null;
+  let activeDurationMs = 600000;
+  let isOvertime = false;
   const activeDrivers = new Map();
 
   try {
@@ -426,11 +438,35 @@ async function parseLiveLog(logPath, isRaceWeekend) {
     const content = buffer.toString('utf-8');
     const lines = content.split(/\r?\n/);
 
+    // Leggi durate sessione dalla definizione stagione (se presente all'inizio del file)
+    const headChunk = content.slice(0, 60000);
+    const durMatches = [...headChunk.matchAll(/"session_duration_ms":\s*(\d+)/g)].map(x => Number(x[1]));
+    if (durMatches.length >= 2) {
+      raceDurationMs = durMatches[0];
+      qualyDurationMs = durMatches[1];
+    } else if (durMatches.length === 1) {
+      qualyDurationMs = durMatches[0];
+      raceDurationMs = durMatches[0];
+    }
+
     for (const line of lines) {
+      const ts = parseLogTimestampMs(line);
+
       if (line.includes('TimeAttackRemote Qualifying created')) {
         sessionPhase = isRaceWeekend ? 'QUALIFICHE' : 'PRATICA';
+        sessionStartMs = ts;
+        activeDurationMs = qualyDurationMs;
+        isOvertime = false;
       } else if (line.includes('InstantRaceRemote Race created')) {
         sessionPhase = 'GARA';
+        sessionStartMs = ts;
+        activeDurationMs = raceDurationMs;
+        isOvertime = false;
+      } else if (line.includes('changing session phase 3 -> 4') && sessionPhase === 'GARA') {
+        sessionStartMs = ts;
+        activeDurationMs = raceDurationMs;
+      } else if (line.includes('WAIT_LAST_LAP') || line.includes('Overtime_Waiting_For_Leader')) {
+        isOvertime = true;
       }
 
       const updMatch = line.match(/Server updated:\s*(\d+)\s*players/);
@@ -501,7 +537,9 @@ async function parseLiveLog(logPath, isRaceWeekend) {
     playersList.push({ ...p, name: finalName, nation: finalNat });
   }
 
-  return { currentPlayers: playersList.length, sessionPhase, playersList };
+  const sessionEndTimeMs = sessionStartMs && activeDurationMs > 0 ? sessionStartMs + activeDurationMs : null;
+
+  return { currentPlayers: playersList.length, sessionPhase, sessionEndTimeMs, isOvertime, playersList };
 }
 
 let isScanning = false;
@@ -594,6 +632,9 @@ async function scanServers(forceRefreshResults = false) {
         trackLayout,
         sessionPhase: isOnline ? logData.sessionPhase : 'OFFLINE',
         playersList: isOnline ? logData.playersList : []
+        sessionEndTimeMs: isOnline ? logData.sessionEndTimeMs : null,
+        isOvertime: isOnline ? logData.isOvertime : false,
+
       });
     }
 
