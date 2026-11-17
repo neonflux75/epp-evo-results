@@ -145,24 +145,35 @@ export default function EvoResultsDashboard() {
     }
   };
 
-  const fetchDashboard = async (track = selectedTrack) => {
-    try {
-      const res = await fetch(`/api/dashboard${track ? `?track=${encodeURIComponent(track)}` : ''}`);
-      const json = await res.json();
-      if (json.tracks?.length > 0) {
-        const exists = json.tracks.some((t: any) => t.track_name === track);
-        if (!track || !exists) {
-          const rnd = json.tracks[Math.floor(Math.random() * json.tracks.length)].track_name;
-          setSelectedTrack(rnd);
-          setCookie('evo_top100_track', rnd);
-          const r2 = await fetch(`/api/dashboard?track=${encodeURIComponent(rnd)}`);
-          setData(await r2.json());
-          return;
-        }
+const getViewerId = () => {
+  if (typeof window === 'undefined') return '';
+  let id = sessionStorage.getItem('evo_viewer_id');
+  if (!id) {
+    id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    sessionStorage.setItem('evo_viewer_id', id);
+  }
+  return id;
+};
+
+const fetchDashboard = async (track = selectedTrack) => {
+  try {
+    const vId = getViewerId();
+    const res = await fetch(`/api/dashboard?viewerId=${encodeURIComponent(vId)}${track ? `&track=${encodeURIComponent(track)}` : ''}`);
+    const json = await res.json();
+    if (json.tracks?.length > 0) {
+      const exists = json.tracks.some((t: any) => t.track_name === track);
+      if (!track || !exists) {
+        const rnd = json.tracks[Math.floor(Math.random() * json.tracks.length)].track_name;
+        setSelectedTrack(rnd);
+        setCookie('evo_top100_track', rnd);
+        const r2 = await fetch(`/api/dashboard?viewerId=${encodeURIComponent(vId)}&track=${encodeURIComponent(rnd)}`);
+        setData(await r2.json());
+        return;
       }
-      setData(json);
-    } catch (e) { console.error(e); }
-  };
+    }
+    setData(json);
+  } catch (e) { console.error(e); }
+};
 
   useEffect(() => {
     if (!cookiesLoaded) return;
@@ -282,8 +293,16 @@ export default function EvoResultsDashboard() {
             <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
               <Server className="w-4 h-4 text-red-500" /> Stato Live Server ({data.liveServers.length}) — <span className="text-gray-500 normal-case font-normal">Clicca su un server per vedere i piloti connessi</span>
             </h2>
-            <span className="text-[11px] text-gray-500">Live ogni 30s</span>
-          </div>
+ <div className="flex items-center gap-3 text-[11px]">
+  {typeof data.onlineViewers === 'number' && (
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+      {data.onlineViewers} {data.onlineViewers === 1 ? 'utente online' : 'utenti online'}
+    </span>
+  )}
+  <span className="text-gray-500">Live ogni 30s</span>
+</div>
+         </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {data.liveServers.map((srv: any) => {
               const count = Math.max(srv.players || 0, srv.playersList?.length || 0);
