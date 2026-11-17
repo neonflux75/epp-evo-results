@@ -1,7 +1,7 @@
 [
   {
     "id": "server_1",
-    "name": "EPP ACEvo server #Red Bull Ring #GT3 #ITA",
+    "name": "EPP #Red Bull Ring #GT3 https://epp-evo-results.vercel.app",
     "online": true,
     "players": 0,
     "maxPlayers": 20,
@@ -13,9 +13,9 @@
   },
   {
     "id": "server_2",
-    "name": "EPP ACEvo server #Monza #GT3 #ITA",
+    "name": "EPP #Monza #GT3 https://epp-evo-results.vercel.app",
     "online": true,
-    "players": 7,
+    "players": 9,
     "maxPlayers": 20,
     "track": "Monza (GP)",
     "trackId": "Monza",
@@ -23,66 +23,82 @@
     "sessionPhase": "QUALIFICHE",
     "playersList": [
       {
-        "steamId": "76561198750680876",
+        "steamId": "76561198353124462",
         "number": "-",
         "name": "Pilota",
-        "car": "Porsche 992 Gt3 R Rennsport",
-        "carId": "4426343cfb3112f7-cb8a09719db3ad97",
+        "car": "Bmw M4 Gt3",
+        "carId": "468fd25c1093b26f-9b19b00eaef34b80",
         "nation": ""
       },
       {
-        "steamId": "76561198071443102",
+        "steamId": "76561198312866175",
         "number": "-",
         "name": "Pilota",
+        "car": "Bmw M4 Gt3",
+        "carId": "44c61cb70b462ea1-9d892e8917b7a297",
+        "nation": ""
+      },
+      {
+        "steamId": "76561199040004466",
+        "carId": "4981b1f1073d12b7-7e1a815f77b412be",
+        "number": "4",
+        "name": "Pedro Félix",
+        "car": "In pista",
+        "nation": "PRT"
+      },
+      {
+        "steamId": "76561198258571703",
+        "carId": "4f058fb99810c54e-a5f8146b21520da6",
+        "number": "8",
+        "name": "a b",
         "car": "Audi R8 Lms Gt3 Evo 2",
-        "carId": "40ef34bf63a4bfdd-6514ebea79173db6",
         "nation": ""
       },
       {
-        "steamId": "76561197960271872",
-        "number": "-",
-        "name": "Pilota",
+        "steamId": "76561198324624644",
+        "carId": "41dd7005c68d6a00-b6a2559a0fd4d495",
+        "number": "818",
+        "name": "Mano Lopes",
         "car": "Porsche 992 Gt3 R Rennsport",
-        "carId": "460f27f1edd0bee9-1bad46c113775088",
         "nation": ""
       },
       {
-        "steamId": "76561198603474250",
-        "carId": "4cdcebae01bfdb1c-1f022b98a034a8b2",
-        "number": "296",
-        "name": "lorenzo carnevale",
+        "steamId": "76561198323120400",
+        "carId": "44a52721b88f96be-cdc3194afcb9f297",
+        "number": "297",
+        "name": "ChiChiLeno AGP",
         "car": "Ferrari 296 Gt3",
         "nation": ""
       },
       {
-        "steamId": "76561198158024101",
-        "carId": "47a39fbb409a85f0-d076eeef6a469f99",
-        "number": "1",
-        "name": "FLAVIUS SEICA",
+        "steamId": "76561199785125060",
+        "carId": "47c703577f965d2a-04d04cdc4871fe8a",
+        "number": "296",
+        "name": "G. Nostromo",
+        "car": "In pista",
+        "nation": "ESP"
+      },
+      {
+        "steamId": "76561198759623480",
+        "carId": "4055c13415735b8b-10b7427d55495dad",
+        "number": "79",
+        "name": "Ribonucleico",
         "car": "Audi R8 Lms Gt3 Evo 2",
         "nation": ""
       },
       {
-        "steamId": "76561199800396601",
-        "carId": "4201013e45bfe5b8-8f3ac1fcd4f827ab",
-        "number": "2",
-        "name": "noah degardin",
-        "car": "Porsche 992 Gt3 R Rennsport",
-        "nation": ""
-      },
-      {
-        "steamId": "76561197994256616",
-        "carId": "49a52b93ff95d6f5-0843b5ab12c0dfaa",
-        "number": "3",
-        "name": "Markus Goth",
-        "car": "Porsche 992 Gt3 R Rennsport",
-        "nation": "CHE"
+        "steamId": "76561199145720621",
+        "carId": "41c3063bd9f1487c-18cb191555ca2182",
+        "number": "61",
+        "name": "Ryan Druder",
+        "car": "Ferrari 296 Gt3",
+        "nation": "USA"
       }
     ]
   },
   {
     "id": "server_3",
-    "name": "EPP ACEvo server #Mount Panorama #GT3 #ITA",
+    "name": "EPP #Mount Panorama #GT3 https://epp-evo-results.vercel.app",
     "online": true,
     "players": 0,
     "maxPlayers": 20,
@@ -94,55 +110,38 @@
   },
   {
     "id": "server_4",
-    "name": "EPP ACEvo server #Red Bull Ring #Pratice #ITA",
+    "name": "EPP #Spa #GT3 https://epp-evo-results.vercel.app",
     "online": true,
     "players": 0,
     "maxPlayers": 20,
-    "track": "Red Bull Ring (GP)",
-    "trackId": "Red Bull Ring",
+    "track": "Circuit de Spa Francorchamps (GP)",
+    "trackId": "Circuit de Spa Francorchamps",
     "trackLayout": "GP",
-    "sessionPhase": "PRATICA",
+    "sessionPhase": "QUALIFICHE",
     "playersList": []
   },
   {
     "id": "server_5",
-    "name": "EPP ACEvo server #Monza #Pratice #ITA",
+    "name": "EPP #Imola #GT3 https://epp-evo-results.vercel.app",
     "online": true,
     "players": 0,
     "maxPlayers": 20,
-    "track": "Monza (GP)",
-    "trackId": "Monza",
+    "track": "Imola (GP)",
+    "trackId": "Imola",
     "trackLayout": "GP",
-    "sessionPhase": "PRATICA",
+    "sessionPhase": "QUALIFICHE",
     "playersList": []
   },
   {
     "id": "server_6",
-    "name": "EPP ACEvo server #Mount Panorama #Pratice #ITA",
+    "name": "EPP #Mount Panorama https://epp-evo-results.vercel.app",
     "online": true,
-    "players": 2,
+    "players": 0,
     "maxPlayers": 20,
     "track": "Mount Panorama (GP)",
     "trackId": "Mount Panorama",
     "trackLayout": "GP",
     "sessionPhase": "PRATICA",
-    "playersList": [
-      {
-        "steamId": "76561199168427014",
-        "carId": "41e0177e9a7f6492-9c95fdffa7cdb080",
-        "number": "296",
-        "name": "Artemi Pink",
-        "car": "Ferrari 296 Gt3",
-        "nation": ""
-      },
-      {
-        "steamId": "76561199884154087",
-        "carId": "4d147bc75f11175f-1ca8a307a2de30aa",
-        "number": "911",
-        "name": "Crafty Cockney",
-        "car": "Porsche 992 Gt3 R Rennsport",
-        "nation": ""
-      }
-    ]
+    "playersList": []
   }
 ]
