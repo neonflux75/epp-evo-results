@@ -43,6 +43,7 @@ async function initDb() {
       id SERIAL PRIMARY KEY,
       session_id INTEGER,
       position INTEGER,
+      grid_position INTEGER,
       driver_guid TEXT,
       driver_name TEXT,
       nickname TEXT,
@@ -51,8 +52,14 @@ async function initDb() {
       race_number INTEGER,
       total_time_ms BIGINT,
       best_lap_ms BIGINT,
-      laps_completed INTEGER
+      laps_completed INTEGER,
+      is_disqualified BOOLEAN DEFAULT FALSE,
+      penalty_seconds INTEGER DEFAULT 0
     );
+
+    ALTER TABLE session_results ADD COLUMN IF NOT EXISTS grid_position INTEGER;
+    ALTER TABLE session_results ADD COLUMN IF NOT EXISTS is_disqualified BOOLEAN DEFAULT FALSE;
+    ALTER TABLE session_results ADD COLUMN IF NOT EXISTS penalty_seconds INTEGER DEFAULT 0;
 
     CREATE TABLE IF NOT EXISTS laps (
       id SERIAL PRIMARY KEY,
@@ -134,16 +141,149 @@ async function preloadProcessedHashes() {
   } catch (e) {}
 }
 
-async function processResultFile(filePath, serverFolder) {
+function parseSessionPayload(data) {
+  const driversMap = new Map();
+  (data.drivers || []).forEach(d => {
+    if (!d || !d.guid) return;
+    const key = `${d.guid.a}_${d.guid.b}`;
+    const fullName = `${d.first_name || ''} ${d.last_name || ''}`.trim() || d.nickname || 'Sconosciuto';
+    if (!driversMap.has(key)) {
+      driversMap.set(key, {
+        guid: key,
+        name: fullName,
+        nickname: d.nickname || '',
+        nation: d.nation || ''
+      });
+    }
+    if (d.nation) {
+      nationCache.set(fullName.toLowerCase(), d.nation);
+    }
+  });
+
+  const carsMap = new Map();
+  (data.cars || []).forEach(c => {
+    if (!c || !c.car_id) return;
+    const key = `${c.car_id.a}_${c.car_id.b}`;
+    carsMap.set(key, {
+      model: c.model_displayname || 'Auto Sconosciuta',
+      number: c.race_number || 0
+    });
+  });
+
+  const carStartPos = new Map();
+  let maxExplicitGrid = 0;
+  (data.car_standings || []).forEach(cs => {
+    if (!cs || !cs.car_id) return;
+    const cKey = `${cs.car_id.a}_${cs.car_id.b}`;
+    const sp = Number(cs.starting_position || 0);
+    carStartPos.set(cKey, sp);
+    if (sp > maxExplicitGrid) maxExplicitGrid = sp;
+  });
+
+  const carPenalties = new Map();
+  const sessionPenalties = (data.penalty_collection && data.penalty_collection.session_penalties) || [];
+  for (const entry of sessionPenalties) {
+    if (!entry || !entry.car_id) continue;
+    const cKey = `${entry.car_id.a}_${entry.car_id.b}`;
+    const allItems = [...(entry.pending_penalties || []), ...(entry.cleared_penalties || [])];
+    let dsq = false;
+    let totalPenaltyMs = 0;
+    for (const item of allItems) {
+      const pType = (item && item.penalty_data && item.penalty_data.type) || '';
+      const pMs = Number((item && item.penalty_data && item.penalty_data.penalty_time_ms) || 0);
+      if (pType === 'PenaltyType_Disqualification') dsq = true;
+      if (pMs > 0) totalPenaltyMs += pMs;
+    }
+    carPenalties.set(cKey, {
+      isDisqualified: dsq,
+      penaltySeconds: Math.round(totalPenaltyMs / 1000)
+    });
+  }
+
+  const driverBestLap = new Map();
+  const driverLapCount = new Map();
+  const driverCar = new Map();
+  const driverCarKey = new Map();
+
+  for (const lap of (data.laps || [])) {
+    const dKey = `${lap.driver_key.a}_${lap.driver_key.b}`;
+    const cKey = `${lap.car_key.a}_${lap.car_key.b}`;
+    const car = carsMap.get(cKey) || { model: 'GT3', number: 0 };
+    const isValid = lap.flags === 2 ? 1 : 0;
+
+    driverCar.set(dKey, car);
+    driverCarKey.set(dKey, cKey);
+    driverLapCount.set(dKey, (driverLapCount.get(dKey) || 0) + 1);
+
+    if (isValid && lap.time > 0) {
+      const prevBest = driverBestLap.get(dKey);
+      if (!prevBest || lap.time < prevBest) {
+        driverBestLap.set(dKey, lap.time);
+      }
+    }
+  }
+
+  const standings = data.driver_standings || [];
+  const times = data.time_standings || [];
+  const seenDrivers = new Set();
+  const uniqueRows = [];
+  let nextFallbackGrid = maxExplicitGrid + 1;
+
+  for (let idx = 0; idx < standings.length; idx++) {
+    const st = standings[idx];
+    const dKey = `${st.a}_${st.b}`;
+    if (seenDrivers.has(dKey)) continue;
+    const driver = driversMap.get(dKey);
+    const lapsDone = driverLapCount.get(dKey) || 0;
+    if (!driver || lapsDone <= 0) continue;
+
+    seenDrivers.add(dKey);
+    const cKey = driverCarKey.get(dKey) || '';
+    const car = driverCar.get(dKey) || { model: '-', number: 0 };
+    const rawGrid = carStartPos.get(cKey) || 0;
+    const gridPosition = rawGrid > 0 ? rawGrid : nextFallbackGrid++;
+    const pen = carPenalties.get(cKey) || { isDisqualified: false, penaltySeconds: 0 };
+
+    uniqueRows.push({
+      driverGuid: dKey,
+      driverName: driver.name,
+      nickname: driver.nickname,
+      nation: driver.nation,
+      carModel: car.model,
+      raceNumber: car.number,
+      totalTimeMs: times[idx] || 0,
+      bestLapMs: driverBestLap.get(dKey) || 0,
+      lapsCompleted: lapsDone,
+      gridPosition,
+      isDisqualified: pen.isDisqualified,
+      penaltySeconds: pen.penaltySeconds
+    });
+  }
+
+  uniqueRows.sort((a, b) => {
+    if (a.isDisqualified !== b.isDisqualified) return a.isDisqualified ? 1 : -1;
+    return 0;
+  });
+
+  uniqueRows.forEach((row, i) => {
+    row.position = i + 1;
+  });
+
+  return { driversMap, carsMap, uniqueRows };
+}
+
+async function processResultFile(filePath, serverFolder, forceRefresh = false) {
   const filename = path.basename(filePath);
   const fileHash = `${serverFolder}_${filename}`;
 
-  if (processedHashes.has(fileHash)) return;
+  if (!forceRefresh && processedHashes.has(fileHash)) return;
 
   const client = await pool.connect();
   try {
     const checkRes = await client.query('SELECT id FROM sessions WHERE file_hash = $1', [fileHash]);
-    if (checkRes.rows.length > 0) {
+    const existingSessionId = checkRes.rows.length > 0 ? Number(checkRes.rows[0].id) : null;
+
+    if (existingSessionId && !forceRefresh) {
       processedHashes.add(fileHash);
       return;
     }
@@ -158,132 +298,89 @@ async function processResultFile(filePath, serverFolder) {
 
     const stats = fs.statSync(filePath);
     const playedAt = parseDateFromFilename(filename, stats.mtime.toISOString().replace('T', ' ').substring(0, 19));
-
-    const driversMap = new Map();
-    (data.drivers || []).forEach(d => {
-      const key = `${d.guid.a}_${d.guid.b}`;
-      const fullName = `${d.first_name || ''} ${d.last_name || ''}`.trim() || d.nickname || 'Sconosciuto';
-      driversMap.set(key, {
-        guid: key,
-        name: fullName,
-        nickname: d.nickname || '',
-        nation: d.nation || ''
-      });
-      if (d.nation) {
-        nationCache.set(fullName.toLowerCase(), d.nation);
-      }
-    });
-
-    const carsMap = new Map();
-    (data.cars || []).forEach(c => {
-      const key = `${c.car_id.a}_${c.car_id.b}`;
-      carsMap.set(key, {
-        model: c.model_displayname || 'Auto Sconosciuta',
-        number: c.race_number || 0
-      });
-    });
+    const { driversMap, carsMap, uniqueRows } = parseSessionPayload(data);
 
     await client.query('BEGIN');
 
-    const insertSessRes = await client.query(
-      `INSERT INTO sessions (file_hash, filename, server_name, session_name, session_type, track_name, track_layout, played_at, driver_count)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id`,
-      [
-        fileHash,
-        filename,
-        data.server_name || serverFolder,
-        data.session_name || '',
-        data.session_type || 'Practice',
-        data.track_name || 'Sconosciuta',
-        data.track_layout_name || '',
-        playedAt,
-        (data.drivers || []).length
-      ]
-    );
-
-    const sessionId = Number(insertSessRes.rows[0].id);
-
-    const driverBestLap = new Map();
-    const driverLapCount = new Map();
-    const driverCar = new Map();
-
-    for (const lap of data.laps) {
-      const dKey = `${lap.driver_key.a}_${lap.driver_key.b}`;
-      const cKey = `${lap.car_key.a}_${lap.car_key.b}`;
-      const driver = driversMap.get(dKey) || { guid: dKey, name: 'Pilota', nation: '' };
-      const car = carsMap.get(cKey) || { model: 'GT3', number: 0 };
-
-      const isValid = lap.flags === 2 ? 1 : 0;
-      const splits = Array.isArray(lap.split) ? lap.split : [];
-
-      driverCar.set(dKey, car);
-      driverLapCount.set(dKey, (driverLapCount.get(dKey) || 0) + 1);
-
-      if (isValid && lap.time > 0) {
-        const prevBest = driverBestLap.get(dKey);
-        if (!prevBest || lap.time < prevBest) {
-          driverBestLap.set(dKey, lap.time);
-        }
-      }
-
-      await client.query(
-        `INSERT INTO laps (session_id, driver_guid, driver_name, nation, car_model, track_name, track_layout, lap_time_ms, sector_1_ms, sector_2_ms, sector_3_ms, is_valid, recorded_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    let sessionId = existingSessionId;
+    if (sessionId) {
+      await client.query('UPDATE sessions SET driver_count = $1 WHERE id = $2', [uniqueRows.length, sessionId]);
+      await client.query('DELETE FROM session_results WHERE session_id = $1', [sessionId]);
+    } else {
+      const insertSessRes = await client.query(
+        `INSERT INTO sessions (file_hash, filename, server_name, session_name, session_type, track_name, track_layout, played_at, driver_count)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id`,
         [
-          sessionId,
-          dKey,
-          driver.name,
-          driver.nation,
-          car.model,
+          fileHash,
+          filename,
+          data.server_name || serverFolder,
+          data.session_name || '',
+          data.session_type || 'Practice',
           data.track_name || 'Sconosciuta',
           data.track_layout_name || '',
-          lap.time,
-          splits[0] || 0,
-          splits[1] || 0,
-          splits[2] || 0,
-          isValid,
-          playedAt
+          playedAt,
+          uniqueRows.length
         ]
       );
-    }
+      sessionId = Number(insertSessRes.rows[0].id);
 
-    const standings = data.driver_standings || [];
-    const times = data.time_standings || [];
+      for (const lap of data.laps) {
+        const dKey = `${lap.driver_key.a}_${lap.driver_key.b}`;
+        const cKey = `${lap.car_key.a}_${lap.car_key.b}`;
+        const driver = driversMap.get(dKey) || { guid: dKey, name: 'Pilota', nation: '' };
+        const car = carsMap.get(cKey) || { model: 'GT3', number: 0 };
+        const isValid = lap.flags === 2 ? 1 : 0;
+        const splits = Array.isArray(lap.split) ? lap.split : [];
 
-    for (let idx = 0; idx < standings.length; idx++) {
-      const st = standings[idx];
-      const dKey = `${st.a}_${st.b}`;
-      const driver = driversMap.get(dKey);
-      if (!driver) continue;
-      const car = driverCar.get(dKey) || { model: '-', number: 0 };
-      const lapsDone = driverLapCount.get(dKey) || 0;
-      const bestLap = driverBestLap.get(dKey) || 0;
-
-      if (lapsDone > 0) {
         await client.query(
-          `INSERT INTO session_results (session_id, position, driver_guid, driver_name, nickname, nation, car_model, race_number, total_time_ms, best_lap_ms, laps_completed)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          `INSERT INTO laps (session_id, driver_guid, driver_name, nation, car_model, track_name, track_layout, lap_time_ms, sector_1_ms, sector_2_ms, sector_3_ms, is_valid, recorded_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
           [
             sessionId,
-            idx + 1,
             dKey,
             driver.name,
-            driver.nickname,
             driver.nation,
             car.model,
-            car.number,
-            times[idx] || 0,
-            bestLap,
-            lapsDone
+            data.track_name || 'Sconosciuta',
+            data.track_layout_name || '',
+            lap.time,
+            splits[0] || 0,
+            splits[1] || 0,
+            splits[2] || 0,
+            isValid,
+            playedAt
           ]
         );
       }
     }
 
+    for (const r of uniqueRows) {
+      await client.query(
+        `INSERT INTO session_results (session_id, position, grid_position, driver_guid, driver_name, nickname, nation, car_model, race_number, total_time_ms, best_lap_ms, laps_completed, is_disqualified, penalty_seconds)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        [
+          sessionId,
+          r.position,
+          r.gridPosition,
+          r.driverGuid,
+          r.driverName,
+          r.nickname,
+          r.nation,
+          r.carModel,
+          r.raceNumber,
+          r.totalTimeMs,
+          r.bestLapMs,
+          r.lapsCompleted,
+          r.isDisqualified,
+          r.penaltySeconds
+        ]
+      );
+    }
+
     await client.query('COMMIT');
     processedHashes.add(fileHash);
-    console.log(`[AIVEN IMPORTATO] ${serverFolder} -> ${filename} (${data.track_name} - ${data.session_type})`);
+    console.log(`[AIVEN ${existingSessionId ? 'AGGIORNATO' : 'IMPORTATO'}] ${serverFolder} -> ${filename} (${uniqueRows.length} piloti)`);
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error(`[ERRORE] Lettura/Invio ${filename}:`, err.message);
@@ -391,7 +488,7 @@ async function parseLiveLog(logPath, isRaceWeekend) {
 let isScanning = false;
 let lastLiveJson = '';
 
-async function scanServers() {
+async function scanServers(forceRefreshResults = false) {
   if (isScanning) return;
   isScanning = true;
 
@@ -415,7 +512,7 @@ async function scanServers() {
         if (fs.existsSync(resDir)) {
           const files = fs.readdirSync(resDir).filter(f => f.endsWith('.json'));
           for (const file of files) {
-            await processResultFile(path.join(resDir, file), folder);
+            await processResultFile(path.join(resDir, file), folder, forceRefreshResults);
           }
         }
       }
@@ -508,9 +605,10 @@ async function scanServers() {
     console.log('Connessione al database cloud Aiven PostgreSQL in corso...');
     await initDb();
     await preloadProcessedHashes();
+    console.log('Riallineamento risultati sessioni esistenti (griglia, DSQ, penalità, deduplica piloti)...');
+    await scanServers(true);
     console.log(`Connesso a Aiven PostgreSQL! Avvio monitoraggio server Assetto Corsa EVO (ogni ${POLL_MS / 1000}s)...`);
-    await scanServers();
-    setInterval(scanServers, POLL_MS);
+    setInterval(() => scanServers(false), POLL_MS);
   } catch (err) {
     console.error('[ERRORE AVVIO AIVEN]', err.message);
     process.exit(1);

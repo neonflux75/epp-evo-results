@@ -67,6 +67,9 @@ export const en: Dictionary = {
       Qualifying: 'Qualifying',
       Practice: 'Practice',
       Warmup: 'Warmup',
+      disqualified: 'Disqualified (DSQ)',
+      penaltyTooltip: 'Total time penalty: +{sec}s',
+
     },
     typeLabels: {
       Race: 'Race',

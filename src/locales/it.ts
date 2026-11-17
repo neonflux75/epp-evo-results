@@ -65,6 +65,9 @@ export const it = {
       Qualifying: 'Qualifiche',
       Practice: 'Pratica',
       Warmup: 'Warmup',
+      disqualified: 'Squalificato (DSQ)',
+      penaltyTooltip: 'Penalità totale accumulata: +{sec}s',
+
     },
     typeLabels: {
       Race: 'Gara (Race)',
