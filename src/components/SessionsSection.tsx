@@ -5,7 +5,7 @@ import {
   TrackPreview,
   normalizeSessionCategory,
   getSessionTypeLabel,
-  formatLocalDate,
+  formatLocalDateTime,
 } from '@/lib/evoUtils';
 import { SessionDetailsModal } from './SessionDetailsModal';
 
@@ -131,7 +131,7 @@ export function SessionsSection({
                       {s.track_name} <span className="text-gray-500 font-normal">({s.server_name})</span>
                     </h3>
                     <p className="text-xs text-gray-400">
-                      Data: {formatLocalDate(s.played_at)} • Piloti partecipanti: <strong className="text-gray-200">{s.driver_count}</strong>
+                      Data: {formatLocalDateTime(s.played_at)} • Piloti partecipanti: <strong className="text-gray-200">{s.driver_count}</strong>
                     </p>
                   </div>
                 </div>
