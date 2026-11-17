@@ -7,6 +7,7 @@ import { LeaderboardSection } from '@/components/LeaderboardSection';
 import { SessionsSection } from '@/components/SessionsSection';
 import { TrackRecordsSection, DriversRosterSection } from '@/components/RecordsAndDriversSection';
 import { DriverProfileModal } from '@/components/DriverProfileModal';
+import { FeatureRequestWidget } from '@/components/FeatureRequestWidget';
 import { TelemetryChatWidget } from '@/components/TelemetryChatWidget';
 
 export default function EvoResultsDashboard() {
@@ -188,6 +189,7 @@ export default function EvoResultsDashboard() {
       </main>
 
       <DriverProfileModal profile={selectedDriverProfile} loading={loadingDriverProfile} onClose={() => setSelectedDriverProfile(null)} />
+		<FeatureRequestWidget />
       <TelemetryChatWidget />
     </div>
   );
