@@ -389,6 +389,27 @@ async function processResultFile(filePath, serverFolder, forceRefresh = false) {
   }
 }
 
+const steamProfileCache = new Map();
+
+async function lookupDriverBySteamId(steamId) {
+  if (!steamId) return null;
+  if (steamProfileCache.has(steamId)) return steamProfileCache.get(steamId);
+  try {
+    const res = await pool.query(
+      `SELECT driver_name, nation FROM session_results
+       WHERE driver_guid LIKE $1 AND driver_name IS NOT NULL AND TRIM(driver_name) != '' AND driver_name != 'Pilota'
+       ORDER BY id DESC LIMIT 1`,
+      [`%${steamId}%`]
+    );
+    if (res.rows.length > 0) {
+      const info = { name: String(res.rows[0].driver_name), nation: String(res.rows[0].nation || '') };
+      steamProfileCache.set(steamId, info);
+      return info;
+    }
+  } catch (e) {}
+  return null;
+}
+
 async function parseLiveLog(logPath, isRaceWeekend) {
   let currentPlayers = 0;
   let sessionPhase = isRaceWeekend ? 'QUALIFICHE' : 'PRATICA';
@@ -396,7 +417,7 @@ async function parseLiveLog(logPath, isRaceWeekend) {
 
   try {
     const stat = fs.statSync(logPath);
-    const readSize = Math.min(stat.size, 500000);
+    const readSize = Math.min(stat.size, 4000000);
     const fd = fs.openSync(logPath, 'r');
     const buffer = Buffer.alloc(readSize);
     fs.readSync(fd, buffer, 0, readSize, stat.size - readSize);
@@ -413,14 +434,12 @@ async function parseLiveLog(logPath, isRaceWeekend) {
       }
 
       const updMatch = line.match(/Server updated:\s*(\d+)\s*players/);
-      if (updMatch) {
-        currentPlayers = parseInt(updMatch[1], 10);
-      }
+      if (updMatch) currentPlayers = parseInt(updMatch[1], 10);
 
       const natMatch = line.match(/(\d{17})[^A-Za-z0-9]+(?:nation|country)[=:\s]+"?([A-Za-z]{2,3})"?/i);
       if (natMatch) {
         const [, steamId, nat] = natMatch;
-        const existing = activeDrivers.get(steamId) || { steamId, number: '-', name: 'Pilota', car: 'In pista' };
+        const existing = activeDrivers.get(steamId) || { steamId, number: '-', name: '', car: 'In pista' };
         existing.nation = nat.toUpperCase();
         activeDrivers.set(steamId, existing);
       }
@@ -443,21 +462,17 @@ async function parseLiveLog(logPath, isRaceWeekend) {
       const connCarMatch = line.match(/(\d{17}) connected \(true\) on car ([^,]+), with new carId ([^\s]+)/);
       if (connCarMatch) {
         const [, steamId, rawCar, carId] = connCarMatch;
-        const existing = activeDrivers.get(steamId) || { steamId, number: '-', name: 'Pilota' };
+        const existing = activeDrivers.get(steamId) || { steamId, number: '-', name: '' };
         existing.car = formatCarName(rawCar);
         existing.carId = carId;
         activeDrivers.set(steamId, existing);
       }
 
       const destroyMatch = line.match(/Destroying Car\(\d+\) By ConnectionID \(.+?\s+(\d{17})\)/);
-      if (destroyMatch) {
-        activeDrivers.delete(destroyMatch[1]);
-      }
+      if (destroyMatch) activeDrivers.delete(destroyMatch[1]);
 
       const discMatch = line.match(/(\d{17})\s+(?:disconnected|timed out)/i);
-      if (discMatch) {
-        activeDrivers.delete(discMatch[1]);
-      }
+      if (discMatch) activeDrivers.delete(discMatch[1]);
     }
 
     if (currentPlayers === 0) {
@@ -466,23 +481,27 @@ async function parseLiveLog(logPath, isRaceWeekend) {
       const entries = Array.from(activeDrivers.entries());
       const trimmed = entries.slice(entries.length - currentPlayers);
       activeDrivers.clear();
-      for (const [k, v] of trimmed) {
-        activeDrivers.set(k, v);
-      }
+      for (const [k, v] of trimmed) activeDrivers.set(k, v);
     }
   } catch (e) {}
 
   const playersList = [];
   for (const p of activeDrivers.values()) {
-    const nat = p.nation || (await lookupDriverNation(p.name));
-    playersList.push({ ...p, nation: nat });
+    let finalName = p.name;
+    let finalNat = p.nation;
+    if (!finalName || finalName === 'Pilota') {
+      const dbInfo = await lookupDriverBySteamId(p.steamId);
+      if (dbInfo) {
+        finalName = dbInfo.name;
+        if (!finalNat) finalNat = dbInfo.nation;
+      }
+    }
+    if (!finalName) finalName = `Pilota (${p.steamId.slice(-4)})`;
+    if (!finalNat) finalNat = await lookupDriverNation(finalName);
+    playersList.push({ ...p, name: finalName, nation: finalNat });
   }
 
-  return {
-    currentPlayers: playersList.length,
-    sessionPhase,
-    playersList
-  };
+  return { currentPlayers: playersList.length, sessionPhase, playersList };
 }
 
 let isScanning = false;
