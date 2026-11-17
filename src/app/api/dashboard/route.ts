@@ -12,7 +12,6 @@ export async function GET(request: Request) {
     const sessionId = searchParams.get('sessionId');
     const driverGuid = searchParams.get('driverGuid');
 
-    // Se è una richiesta standard della dashboard, usa la cache di 25s per proteggere Turso
     if (!sessionId && !driverGuid) {
       const cached = dashboardCache.get(trackFilter);
       if (cached && Date.now() < cached.expiresAt) {
@@ -20,7 +19,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // 1. Leggi stato live dei server dalla tabella cloud live_status (id = 1, colonne payload e updated_at)
+    // 1. Leggi stato live dei server dalla tabella cloud live_status
     let liveServers: any[] = [];
     try {
       const liveRes = await db.execute('SELECT payload, updated_at FROM live_status WHERE id = 1');
@@ -45,7 +44,7 @@ export async function GET(request: Request) {
           SELECT driver_guid, driver_name, MAX(nation) as nation
           FROM laps
           WHERE driver_guid = ?
-          GROUP BY driver_guid
+          GROUP BY driver_guid, driver_name
         `,
         args: [driverGuid]
       });
@@ -137,7 +136,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // 3. Dettaglio di una singola sessione/gara (con griglia di partenza da qualifica precedente)
+    // 3. Dettaglio di una singola sessione/gara
     if (sessionId) {
       const sessRes = await db.execute({
         sql: 'SELECT * FROM sessions WHERE id = ?',
@@ -286,7 +285,7 @@ export async function GET(request: Request) {
     const driversRes = await db.execute(`
       SELECT
         l.driver_guid,
-        l.driver_name,
+        MAX(l.driver_name) as driver_name,
         MAX(l.nation) as nation,
         COUNT(l.id) as total_laps,
         SUM(CASE WHEN l.is_valid = 1 THEN 1 ELSE 0 END) as valid_laps,
@@ -314,7 +313,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(responsePayload);
   } catch (err) {
-    console.error('Errore API Dashboard Turso:', err);
-    return NextResponse.json({ error: 'Errore connessione database Turso' }, { status: 500 });
+    console.error('Errore API Dashboard PostgreSQL:', err);
+    return NextResponse.json({ error: 'Errore connessione database PostgreSQL' }, { status: 500 });
   }
 }

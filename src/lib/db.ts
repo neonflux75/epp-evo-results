@@ -1,25 +1,43 @@
-import { createClient, Client } from '@libsql/client';
+import { Pool } from 'pg';
 
-let client: Client | null = null;
+let pool: Pool | null = null;
 
-export function getDb(): Client {
-  if (!client) {
-    const url = process.env.TURSO_DATABASE_URL;
-    const authToken = process.env.TURSO_AUTH_TOKEN;
-    if (!url) {
-      throw new Error('TURSO_DATABASE_URL non configurato nelle variabili d ambiente');
+function getPool(): Pool {
+  if (!pool) {
+    const rawUrl = process.env.DATABASE_URL;
+    if (!rawUrl) {
+      throw new Error('DATABASE_URL non configurato nelle variabili d ambiente');
     }
-    client = createClient({
-      url,
-      authToken,
+    const cleanUrl = rawUrl.replace(/([?&])sslmode=[^&]*(&|$)/, '$1').replace(/[?&]$/, '');
+    pool = new Pool({
+      connectionString: cleanUrl,
+      ssl: { rejectUnauthorized: false },
+      max: 3,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
     });
   }
-  return client;
+  return pool;
 }
 
+function convertPlaceholders(sql: string): string {
+  let index = 0;
+  return sql.replace(/\?/g, () => `$${++index}`);
+}
+
+export type QueryInput = string | { sql: string; args?: any[] };
+
 const db = {
-  execute: (...args: Parameters<Client['execute']>) => getDb().execute(...args),
-  batch: (...args: Parameters<Client['batch']>) => getDb().batch(...args),
+  async execute(input: QueryInput) {
+    const p = getPool();
+    if (typeof input === 'string') {
+      const res = await p.query(input);
+      return { rows: res.rows, rowCount: res.rowCount ?? 0 };
+    }
+    const pgSql = convertPlaceholders(input.sql);
+    const res = await p.query(pgSql, input.args || []);
+    return { rows: res.rows, rowCount: res.rowCount ?? 0 };
+  },
 };
 
 export default db;
@@ -28,56 +46,64 @@ let schemaInitialized = false;
 
 export async function ensureSchema() {
   if (schemaInitialized) return;
-  const conn = getDb();
+  const p = getPool();
 
-  await conn.batch([
-    `CREATE TABLE IF NOT EXISTS sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      file_name TEXT UNIQUE,
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id SERIAL PRIMARY KEY,
+      file_hash TEXT UNIQUE,
+      filename TEXT,
       server_name TEXT,
-      track_name TEXT,
+      session_name TEXT,
       session_type TEXT,
-      date_time TEXT,
-      winner_name TEXT,
-      winner_car TEXT,
-      total_drivers INTEGER
-    )`,
-    `CREATE TABLE IF NOT EXISTS session_results (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      track_name TEXT,
+      track_layout TEXT,
+      played_at TEXT,
+      driver_count INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS session_results (
+      id SERIAL PRIMARY KEY,
       session_id INTEGER,
       position INTEGER,
-      driver_name TEXT,
       driver_guid TEXT,
+      driver_name TEXT,
+      nickname TEXT,
       nation TEXT,
       car_model TEXT,
-      best_lap_ms INTEGER,
-      total_time_ms INTEGER,
-      laps_count INTEGER,
-      grid_position INTEGER,
-      FOREIGN KEY(session_id) REFERENCES sessions(id)
-    )`,
-    `CREATE TABLE IF NOT EXISTS laps (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      race_number INTEGER,
+      total_time_ms BIGINT,
+      best_lap_ms BIGINT,
+      laps_completed INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS laps (
+      id SERIAL PRIMARY KEY,
       session_id INTEGER,
-      driver_name TEXT,
       driver_guid TEXT,
+      driver_name TEXT,
       nation TEXT,
       car_model TEXT,
       track_name TEXT,
-      lap_time_ms INTEGER,
-      sector1_ms INTEGER,
-      sector2_ms INTEGER,
-      sector3_ms INTEGER,
-      cuts INTEGER,
-      timestamp TEXT,
-      FOREIGN KEY(session_id) REFERENCES sessions(id)
-    )`,
-    `CREATE TABLE IF NOT EXISTS live_status (
+      track_layout TEXT,
+      lap_time_ms BIGINT,
+      sector_1_ms BIGINT,
+      sector_2_ms BIGINT,
+      sector_3_ms BIGINT,
+      is_valid INTEGER,
+      recorded_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS live_status (
       id INTEGER PRIMARY KEY CHECK (id = 1),
-      payload TEXT,
-      updated_at INTEGER
-    )`
-  ], 'write');
+      payload TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_laps_track_valid ON laps(track_name, is_valid, lap_time_ms);
+    CREATE INDEX IF NOT EXISTS idx_laps_driver ON laps(driver_guid);
+    CREATE INDEX IF NOT EXISTS idx_session_results_session ON session_results(session_id);
+  `);
 
   schemaInitialized = true;
 }

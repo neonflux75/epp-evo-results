@@ -2,29 +2,32 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const ini = require('ini');
-const { createClient } = require('@libsql/client');
+const { Pool } = require('pg');
 
 const config = ini.parse(fs.readFileSync(path.join(__dirname, 'config.ini'), 'utf-8'));
 const SERVERS_ROOT = config.servers_root || (config.paths && config.paths.servers_root);
-const POLL_MS = (parseInt(config.poll_interval_seconds || (config.settings && config.settings.poll_interval_seconds), 10) || 5) * 1000;
+const POLL_MS = Math.max(parseInt(config.poll_interval_seconds || (config.settings && config.settings.poll_interval_seconds), 10) || 30, 15) * 1000;
 
-const tursoUrl = process.env.TURSO_DATABASE_URL;
-const tursoToken = process.env.TURSO_AUTH_TOKEN;
-
-if (!tursoUrl) {
-  console.error('[ERRORE CRITICO] Variabile TURSO_DATABASE_URL mancante nel file .env!');
+const rawDbUrl = process.env.DATABASE_URL;
+if (!rawDbUrl) {
+  console.error('[ERRORE CRITICO] Variabile DATABASE_URL mancante nel file .env!');
   process.exit(1);
 }
 
-const db = createClient({
-  url: tursoUrl,
-  authToken: tursoToken,
+const cleanDbUrl = rawDbUrl.replace(/([?&])sslmode=[^&]*(&|$)/, '$1').replace(/[?&]$/, '');
+
+const pool = new Pool({
+  connectionString: cleanDbUrl,
+  ssl: { rejectUnauthorized: false },
+  max: 2,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 15000,
 });
 
 async function initDb() {
-  await db.batch([
-    `CREATE TABLE IF NOT EXISTS sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id SERIAL PRIMARY KEY,
       file_hash TEXT UNIQUE,
       filename TEXT,
       server_name TEXT,
@@ -34,9 +37,10 @@ async function initDb() {
       track_layout TEXT,
       played_at TEXT,
       driver_count INTEGER
-    )`,
-    `CREATE TABLE IF NOT EXISTS session_results (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+    );
+
+    CREATE TABLE IF NOT EXISTS session_results (
+      id SERIAL PRIMARY KEY,
       session_id INTEGER,
       position INTEGER,
       driver_guid TEXT,
@@ -45,12 +49,13 @@ async function initDb() {
       nation TEXT,
       car_model TEXT,
       race_number INTEGER,
-      total_time_ms INTEGER,
-      best_lap_ms INTEGER,
+      total_time_ms BIGINT,
+      best_lap_ms BIGINT,
       laps_completed INTEGER
-    )`,
-    `CREATE TABLE IF NOT EXISTS laps (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+    );
+
+    CREATE TABLE IF NOT EXISTS laps (
+      id SERIAL PRIMARY KEY,
       session_id INTEGER,
       driver_guid TEXT,
       driver_name TEXT,
@@ -58,21 +63,24 @@ async function initDb() {
       car_model TEXT,
       track_name TEXT,
       track_layout TEXT,
-      lap_time_ms INTEGER,
-      sector_1_ms INTEGER,
-      sector_2_ms INTEGER,
-      sector_3_ms INTEGER,
+      lap_time_ms BIGINT,
+      sector_1_ms BIGINT,
+      sector_2_ms BIGINT,
+      sector_3_ms BIGINT,
       is_valid INTEGER,
       recorded_at TEXT
-    )`,
-    `CREATE TABLE IF NOT EXISTS live_status (
+    );
+
+    CREATE TABLE IF NOT EXISTS live_status (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       payload TEXT NOT NULL,
       updated_at TEXT NOT NULL
-    )`,
-    `CREATE INDEX IF NOT EXISTS idx_laps_track_valid ON laps(track_name, is_valid, lap_time_ms)`,
-    `CREATE INDEX IF NOT EXISTS idx_laps_driver ON laps(driver_guid)`
-  ], 'write');
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_laps_track_valid ON laps(track_name, is_valid, lap_time_ms);
+    CREATE INDEX IF NOT EXISTS idx_laps_driver ON laps(driver_guid);
+    CREATE INDEX IF NOT EXISTS idx_session_results_session ON session_results(session_id);
+  `);
 }
 
 const nationCache = new Map();
@@ -84,12 +92,12 @@ async function lookupDriverNation(name) {
     return nationCache.get(cleanKey);
   }
   try {
-    const res = await db.execute({
-      sql: `SELECT nation FROM laps
-            WHERE LOWER(TRIM(driver_name)) = ? AND nation IS NOT NULL AND TRIM(nation) != ''
-            ORDER BY id DESC LIMIT 1`,
-      args: [cleanKey]
-    });
+    const res = await pool.query(
+      `SELECT nation FROM laps
+       WHERE LOWER(TRIM(driver_name)) = $1 AND nation IS NOT NULL AND TRIM(nation) != ''
+       ORDER BY id DESC LIMIT 1`,
+      [cleanKey]
+    );
     const nat = res.rows.length > 0 ? String(res.rows[0].nation || '') : '';
     if (nat) nationCache.set(cleanKey, nat);
     return nat;
@@ -116,17 +124,25 @@ function formatCarName(rawCar) {
 
 const processedHashes = new Set();
 
+async function preloadProcessedHashes() {
+  try {
+    const res = await pool.query('SELECT file_hash FROM sessions');
+    for (const row of res.rows) {
+      if (row.file_hash) processedHashes.add(row.file_hash);
+    }
+    console.log(`Caricate ${processedHashes.size} sessioni già presenti su Aiven PostgreSQL.`);
+  } catch (e) {}
+}
+
 async function processResultFile(filePath, serverFolder) {
   const filename = path.basename(filePath);
   const fileHash = `${serverFolder}_${filename}`;
 
   if (processedHashes.has(fileHash)) return;
 
+  const client = await pool.connect();
   try {
-    const checkRes = await db.execute({
-      sql: 'SELECT id FROM sessions WHERE file_hash = ?',
-      args: [fileHash]
-    });
+    const checkRes = await client.query('SELECT id FROM sessions WHERE file_hash = $1', [fileHash]);
     if (checkRes.rows.length > 0) {
       processedHashes.add(fileHash);
       return;
@@ -167,10 +183,13 @@ async function processResultFile(filePath, serverFolder) {
       });
     });
 
-    const insertSessRes = await db.execute({
-      sql: `INSERT INTO sessions (file_hash, filename, server_name, session_name, session_type, track_name, track_layout, played_at, driver_count)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
+    await client.query('BEGIN');
+
+    const insertSessRes = await client.query(
+      `INSERT INTO sessions (file_hash, filename, server_name, session_name, session_type, track_name, track_layout, played_at, driver_count)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [
         fileHash,
         filename,
         data.server_name || serverFolder,
@@ -181,14 +200,13 @@ async function processResultFile(filePath, serverFolder) {
         playedAt,
         (data.drivers || []).length
       ]
-    });
+    );
 
-    const sessionId = Number(insertSessRes.lastInsertRowid);
+    const sessionId = Number(insertSessRes.rows[0].id);
 
     const driverBestLap = new Map();
     const driverLapCount = new Map();
     const driverCar = new Map();
-    const batchStmts = [];
 
     for (const lap of data.laps) {
       const dKey = `${lap.driver_key.a}_${lap.driver_key.b}`;
@@ -209,10 +227,10 @@ async function processResultFile(filePath, serverFolder) {
         }
       }
 
-      batchStmts.push({
-        sql: `INSERT INTO laps (session_id, driver_guid, driver_name, nation, car_model, track_name, track_layout, lap_time_ms, sector_1_ms, sector_2_ms, sector_3_ms, is_valid, recorded_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [
+      await client.query(
+        `INSERT INTO laps (session_id, driver_guid, driver_name, nation, car_model, track_name, track_layout, lap_time_ms, sector_1_ms, sector_2_ms, sector_3_ms, is_valid, recorded_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [
           sessionId,
           dKey,
           driver.name,
@@ -227,25 +245,26 @@ async function processResultFile(filePath, serverFolder) {
           isValid,
           playedAt
         ]
-      });
+      );
     }
 
     const standings = data.driver_standings || [];
     const times = data.time_standings || [];
 
-    standings.forEach((st, idx) => {
+    for (let idx = 0; idx < standings.length; idx++) {
+      const st = standings[idx];
       const dKey = `${st.a}_${st.b}`;
       const driver = driversMap.get(dKey);
-      if (!driver) return;
+      if (!driver) continue;
       const car = driverCar.get(dKey) || { model: '-', number: 0 };
       const lapsDone = driverLapCount.get(dKey) || 0;
       const bestLap = driverBestLap.get(dKey) || 0;
 
       if (lapsDone > 0) {
-        batchStmts.push({
-          sql: `INSERT INTO session_results (session_id, position, driver_guid, driver_name, nickname, nation, car_model, race_number, total_time_ms, best_lap_ms, laps_completed)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [
+        await client.query(
+          `INSERT INTO session_results (session_id, position, driver_guid, driver_name, nickname, nation, car_model, race_number, total_time_ms, best_lap_ms, laps_completed)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [
             sessionId,
             idx + 1,
             dKey,
@@ -258,19 +277,18 @@ async function processResultFile(filePath, serverFolder) {
             bestLap,
             lapsDone
           ]
-        });
+        );
       }
-    });
-
-    const CHUNK_SIZE = 100;
-    for (let i = 0; i < batchStmts.length; i += CHUNK_SIZE) {
-      await db.batch(batchStmts.slice(i, i + CHUNK_SIZE), 'write');
     }
 
+    await client.query('COMMIT');
     processedHashes.add(fileHash);
-    console.log(`[TURSO IMPORTATO] ${serverFolder} -> ${filename} (${data.track_name} - ${data.session_type})`);
+    console.log(`[AIVEN IMPORTATO] ${serverFolder} -> ${filename} (${data.track_name} - ${data.session_type})`);
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error(`[ERRORE] Lettura/Invio ${filename}:`, err.message);
+  } finally {
+    client.release();
   }
 }
 
@@ -466,16 +484,15 @@ async function scanServers() {
     const serialized = JSON.stringify(liveStatus, null, 2);
     fs.writeFileSync(path.join(__dirname, 'live_status.json'), serialized);
 
-    // Aggiorna la tabella live_status su Turso (al cambio stato o almeno ogni 45s per mantenere vivo il timestamp)
     const nowIso = new Date().toISOString();
     const shouldPush = serialized !== lastLiveJson || (Date.now() - (scanServers.lastHeartbeat || 0)) > 45000;
     if (shouldPush) {
-      await db.execute({
-        sql: `INSERT INTO live_status (id, payload, updated_at)
-              VALUES (1, ?, ?)
-              ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at`,
-        args: [JSON.stringify(liveStatus), nowIso]
-      });
+      await pool.query(
+        `INSERT INTO live_status (id, payload, updated_at)
+         VALUES (1, $1, $2)
+         ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = EXCLUDED.updated_at`,
+        [JSON.stringify(liveStatus), nowIso]
+      );
       lastLiveJson = serialized;
       scanServers.lastHeartbeat = Date.now();
     }
@@ -488,13 +505,14 @@ async function scanServers() {
 
 (async () => {
   try {
-    console.log('Connessione al database cloud Turso in corso...');
+    console.log('Connessione al database cloud Aiven PostgreSQL in corso...');
     await initDb();
-    console.log('Connesso a Turso! Avvio monitoraggio server Assetto Corsa EVO...');
+    await preloadProcessedHashes();
+    console.log(`Connesso a Aiven PostgreSQL! Avvio monitoraggio server Assetto Corsa EVO (ogni ${POLL_MS / 1000}s)...`);
     await scanServers();
     setInterval(scanServers, POLL_MS);
   } catch (err) {
-    console.error('[ERRORE AVVIO TURSO]', err.message);
+    console.error('[ERRORE AVVIO AIVEN]', err.message);
     process.exit(1);
   }
 })();
