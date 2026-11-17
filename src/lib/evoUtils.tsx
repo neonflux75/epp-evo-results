@@ -96,3 +96,13 @@ export function getSessionTypeLabel(c: string): string {
   if (c === 'Warmup') return 'Warmup';
   return c;
 }
+
+export function formatLocalDateTime(utcStr?: string | null): string {
+  if (!utcStr) return '';
+  const m = String(utcStr).trim().match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})/);
+  if (!m) return String(utcStr);
+  const d = new Date(`${m[1]}T${m[2]}Z`);
+  if (Number.isNaN(d.getTime())) return String(utcStr);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}

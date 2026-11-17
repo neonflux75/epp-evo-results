@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { X } from 'lucide-react';
-import { TrackPreview, normalizeSessionCategory } from '@/lib/evoUtils';
+import { TrackPreview, normalizeSessionCategory, formatLocalDateTime } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 import { SessionResultRow } from './SessionResultRow';
 
@@ -44,7 +44,7 @@ export function SessionDetailsModal({
                 {selectedSession?.session?.track_name} — {selectedSession?.session?.session_type}
               </h3>
               <p className="text-xs text-gray-400">
-                {selectedSession?.session?.server_name} • {selectedSession?.session?.played_at}
+                {selectedSession?.session?.server_name} • {formatLocalDateTime(selectedSession?.session?.played_at)}
               </p>
             </div>
           </div>
