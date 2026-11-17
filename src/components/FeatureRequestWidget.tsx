@@ -12,7 +12,7 @@ interface FeatureItem {
 }
 
 export function FeatureRequestWidget() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<FeatureItem[]>([]);
   const [author, setAuthor] = useState('');
@@ -30,6 +30,12 @@ export function FeatureRequestWidget() {
       if (Array.isArray(json.items)) setItems(json.items);
     } catch {}
   };
+
+  useEffect(() => {
+    loadFeatures();
+    const iv = setInterval(loadFeatures, 30000);
+    return () => clearInterval(iv);
+  }, []);
 
   useEffect(() => {
     if (open) loadFeatures();
@@ -88,6 +94,11 @@ export function FeatureRequestWidget() {
     }
   };
 
+  const tooltipText =
+    lang === 'en'
+      ? `${items.length} feature ${items.length === 1 ? 'request' : 'requests'} submitted`
+      : `${items.length} ${items.length === 1 ? 'richiesta feature presente' : 'richieste feature presenti'}`;
+
   return (
     <div className="fixed bottom-20 right-5 z-40">
       {open ? (
@@ -97,7 +108,7 @@ export function FeatureRequestWidget() {
               <Lightbulb className="w-4 h-4 text-white" />
               <div>
                 <h4 className="text-xs font-bold text-white leading-none">
-                  {t.featureChat.headerTitle} {FEATURE_CHAT_MODE === 'developer' && '(DEV)'}
+                  {t.featureChat.headerTitle} ({items.length}) {FEATURE_CHAT_MODE === 'developer' && '(DEV)'}
                 </h4>
                 <span className="text-[10px] text-amber-100">
                   {FEATURE_CHAT_MODE === 'developer' ? t.featureChat.subMod : t.featureChat.subUser}
@@ -177,9 +188,18 @@ export function FeatureRequestWidget() {
           )}
         </div>
       ) : (
-        <button onClick={() => setOpen(true)} className="flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-3.5 py-2.5 rounded-full shadow-lg shadow-amber-900/40 transition transform hover:scale-105">
+        <button
+          onClick={() => setOpen(true)}
+          title={tooltipText}
+          className="relative flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-3.5 py-2.5 rounded-full shadow-lg shadow-amber-900/40 transition transform hover:scale-105"
+        >
           <Lightbulb className="w-4 h-4" />
           <span>{t.featureChat.buttonLabel}</span>
+          {items.length > 0 && (
+            <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-black/35 text-amber-100 font-mono text-[10px] font-extrabold border border-amber-300/30">
+              {items.length}
+            </span>
+          )}
         </button>
       )}
     </div>
