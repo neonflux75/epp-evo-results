@@ -175,7 +175,7 @@ export function SessionsSection({
       <SessionDetailsModal
         selectedSession={selectedSession}
         loadingSession={loadingSession}
-        onClose={onCloseSession}
+        onCloseSession={onCloseSession}
         expandedDriverGuid={expandedDriverGuid}
         onToggleDriverLaps={onToggleDriverLaps}
       />
