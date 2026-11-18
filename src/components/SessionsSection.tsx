@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Flag, ChevronRight } from 'lucide-react';
+import { Calendar, ChevronRight } from 'lucide-react';
 import {
   TrackPreview,
   normalizeSessionCategory,
@@ -13,64 +13,55 @@ import { SessionDetailsModal } from './SessionDetailsModal';
 interface SessionsSectionProps {
   tracks?: any[];
   sessions: any[];
-  selectedSessionTrack?: string;
-  selectedSessionType?: string;
-  onSessionTrackChange?: (track: string) => void;
-  onSessionTypeChange?: (type: string) => void;
-  selectedSession?: any;
-  loadingSession?: boolean;
-  onOpenSession: (id: number) => void;
-  onCloseSession?: () => void;
-  expandedDriverGuid?: string | null;
-  onToggleDriverLaps?: (guid: string) => void;
+  selectedSessionTrack: string;
+  selectedSessionType: string;
+  onSessionTrackChange: (v: string) => void;
+  onSessionTypeChange: (v: string) => void;
+  selectedSession: any;
+  loadingSession: boolean;
+  onOpenSession: (sessionId: number) => void;
+  onCloseSession: () => void;
+  expandedDriverGuid: string | null;
+  onToggleDriverLaps: (guid: string | null) => void;
 }
 
 export function SessionsSection({
-  tracks = [],
+  tracks,
   sessions,
-  selectedSessionTrack = 'ALL',
-  selectedSessionType = 'ALL',
+  selectedSessionTrack,
+  selectedSessionType,
   onSessionTrackChange,
   onSessionTypeChange,
   selectedSession,
-  loadingSession = false,
+  loadingSession,
   onOpenSession,
-  onCloseSession = () => {},
-  expandedDriverGuid = null,
-  onToggleDriverLaps = () => {},
+  onCloseSession,
+  expandedDriverGuid,
+  onToggleDriverLaps,
 }: SessionsSectionProps) {
   const { t, lang } = useLanguage();
 
-  const availableTracks = Array.from(
-    new Set(
-      [
-        ...(tracks || []).map((tr: any) => tr.track_name || tr),
-        ...(sessions || []).map((s: any) => s.track_name),
-      ].filter(Boolean)
-    )
-  ).sort() as string[];
-
-  const effectiveTrack =
-    selectedSessionTrack === 'ALL' || availableTracks.includes(selectedSessionTrack)
-      ? selectedSessionTrack
-      : 'ALL';
+  const availableTracks =
+    tracks && tracks.length > 0
+      ? tracks.map((tr: any) => (typeof tr === 'string' ? tr : tr.track_name)).filter(Boolean)
+      : (Array.from(
+          new Set((sessions || []).map((s: any) => s.track_name).filter(Boolean))
+        ).sort() as string[]);
 
   const filteredSessions = (sessions || []).filter((s: any) => {
-    const matchesCategory =
-      selectedSessionType === 'ALL'
-        ? true
-        : normalizeSessionCategory(s.session_type) === selectedSessionType;
-    const matchesTrack =
-      effectiveTrack === 'ALL' ? true : s.track_name === effectiveTrack;
-    return matchesCategory && matchesTrack;
+    const matchTrack = selectedSessionTrack === 'ALL' || s.track_name === selectedSessionTrack;
+    const matchType =
+      selectedSessionType === 'ALL' ||
+      normalizeSessionCategory(s.session_type) === selectedSessionType;
+    return matchTrack && matchType;
   });
 
   const filterButtons = [
-    { id: 'ALL', label: t.sessions.filters.all },
-    { id: 'RACE', label: t.sessions.filters.race },
-    { id: 'QUALIFY', label: t.sessions.filters.qualify },
-    { id: 'PRACTICE', label: t.sessions.filters.practice },
-    { id: 'WARMUP', label: 'Warmup' },
+    { id: 'ALL', label: t.sessions.filters.ALL },
+    { id: 'RACE', label: t.sessions.filters.Race },
+    { id: 'QUALIFY', label: t.sessions.filters.Qualifying },
+    { id: 'PRACTICE', label: t.sessions.filters.Practice },
+    { id: 'WARMUP', label: t.sessions.filters.Warmup },
   ];
 
   return (
@@ -78,7 +69,10 @@ export function SessionsSection({
       <section className="bg-[#131720] border border-gray-800/90 rounded-xl overflow-hidden">
         <div className="p-4 border-b border-gray-800 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-white">{t.sessions.title}</h2>
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-red-500" />
+              {t.sessions.title}
+            </h2>
             <p className="text-xs text-gray-400">{t.sessions.subtitle}</p>
           </div>
 
@@ -86,9 +80,9 @@ export function SessionsSection({
             <div className="flex items-center gap-2">
               <label className="text-xs text-gray-400">{t.common.track}:</label>
               <select
-                value={effectiveTrack}
-                onChange={(e) => onSessionTrackChange && onSessionTrackChange(e.target.value)}
-                className="bg-[#0b0d11] border border-gray-700 text-xs sm:text-sm text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-red-500 max-w-[200px]"
+                value={selectedSessionTrack}
+                onChange={(e) => onSessionTrackChange(e.target.value)}
+                className="bg-[#0b0d11] border border-gray-700 text-xs sm:text-sm text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-red-500"
               >
                 <option value="ALL">{lang === 'en' ? 'All tracks' : 'Tutti i tracciati'}</option>
                 {availableTracks.map((tr: string) => (
@@ -99,14 +93,15 @@ export function SessionsSection({
               </select>
             </div>
 
-            <div className="flex items-center bg-[#0b0d11] border border-gray-800 rounded-lg p-1 gap-1">
+            <div className="inline-flex items-center bg-[#0b0d11] border border-gray-800 rounded-lg p-0.5 text-xs">
               {filterButtons.map((btn) => (
                 <button
                   key={btn.id}
-                  onClick={() => onSessionTypeChange && onSessionTypeChange(btn.id)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                  type="button"
+                  onClick={() => onSessionTypeChange(btn.id)}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
                     selectedSessionType === btn.id
-                      ? 'bg-red-600 text-white shadow'
+                      ? 'bg-red-600 text-white'
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
@@ -121,60 +116,58 @@ export function SessionsSection({
           {filteredSessions.map((s: any) => {
             const cat = normalizeSessionCategory(s.session_type);
             const isRace = cat === 'RACE';
-            const isQualy = cat === 'QUALIFY';
+            const badgeStyle = isRace
+              ? 'bg-red-500/15 text-red-400 border-red-500/40'
+              : cat === 'QUALIFY'
+              ? 'bg-amber-500/15 text-amber-400 border-amber-500/40'
+              : 'bg-sky-500/15 text-sky-400 border-sky-500/40';
 
             return (
               <div
                 key={s.id}
                 onClick={() => onOpenSession(s.id)}
-                className="p-4 hover:bg-gray-800/35 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition group"
+                className="p-4 hover:bg-gray-800/30 transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
-                <div className="flex items-center gap-3.5">
-                  <TrackPreview trackName={s.track_name} className="w-16 h-11" />
+                <div className="flex items-center gap-3 min-w-0">
+                  <TrackPreview trackName={s.track_name} className="w-16 h-10 shrink-0" />
                   <span
-                    className={`px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider shrink-0 ${
-                      isRace
-                        ? 'bg-red-500/15 text-red-400 border border-red-500/30'
-                        : isQualy
-                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                        : 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
-                    }`}
+                    className={`px-2 py-0.5 rounded border text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${badgeStyle}`}
                   >
                     {getSessionTypeLabel(s.session_type)}
                   </span>
-                  <div>
-                    <h3 className="font-bold text-white group-hover:text-red-400 transition">
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-white truncate">
                       {s.track_name}{' '}
-                      <span className="text-gray-400 font-normal text-xs">({s.server_name})</span>
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      {t.sessions.date}: {formatLocalDateTime(s.played_at)} • {t.sessions.participants}:{' '}
+                      <span className="font-normal text-gray-400">({s.server_name})</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {lang === 'en' ? 'Date' : 'Data'}: {formatLocalDateTime(s.played_at)} •{' '}
+                      {t.sessions.participants}:{' '}
                       <strong className="text-gray-300">{s.driver_count}</strong>
-                    </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-4">
+                <div className="flex items-center justify-end gap-3 shrink-0">
                   {s.winner_name && (
                     <div className="text-right">
-                      <p className="text-[11px] uppercase tracking-wider text-amber-400 font-semibold">
-                        {isRace ? t.sessions.winner : t.sessions.polePosition}
-                      </p>
-                      <p className="text-sm font-bold text-white">{s.winner_name}</p>
-                      <p className="text-[11px] text-gray-400">{s.winner_car}</p>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                        {isRace ? (lang === 'en' ? '1ST PLACE' : '1° CLASSIFICATO') : 'POLE POSITION'}
+                      </div>
+                      <div className="text-sm font-bold text-white">{s.winner_name}</div>
+                      {s.winner_car && (
+                        <div className="text-[11px] text-gray-400">{s.winner_car}</div>
+                      )}
                     </div>
                   )}
-                  <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-white transition" />
+                  <ChevronRight className="w-4 h-4 text-gray-500" />
                 </div>
               </div>
             );
           })}
 
           {filteredSessions.length === 0 && (
-            <div className="p-10 text-center text-gray-500 flex flex-col items-center gap-2">
-              <Flag className="w-6 h-6 text-gray-600" />
-              <p>{t.sessions.empty}</p>
-            </div>
+            <div className="py-10 text-center text-sm text-gray-500">{t.sessions.empty}</div>
           )}
         </div>
       </section>
