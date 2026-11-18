@@ -10,18 +10,46 @@ import {
 import { useLanguage } from '@/context/LanguageContext';
 
 interface SessionsSectionProps {
+  tracks?: any[];
   sessions: any[];
+  selectedSessionTrack?: string;
+  selectedSessionType?: string;
+  onSessionTrackChange?: (v: string) => void;
+  onSessionTypeChange?: (v: string) => void;
   onOpenSession: (sessionId: number) => void;
 }
 
-export function SessionsSection({ sessions, onOpenSession }: SessionsSectionProps) {
+export function SessionsSection({
+  tracks,
+  sessions,
+  selectedSessionTrack,
+  selectedSessionType,
+  onSessionTrackChange,
+  onSessionTypeChange,
+  onOpenSession,
+}: SessionsSectionProps) {
   const { t, lang } = useLanguage();
-  const [trackFilter, setTrackFilter] = useState<string>('ALL');
-  const [typeFilter, setTypeFilter] = useState<string>('ALL');
+  const [localTrackFilter, setLocalTrackFilter] = useState<string>('ALL');
+  const [localTypeFilter, setLocalTypeFilter] = useState<string>('ALL');
 
-  const availableTracks = Array.from(
-    new Set((sessions || []).map((s: any) => s.track_name).filter(Boolean))
-  ).sort() as string[];
+  const trackFilter = selectedSessionTrack !== undefined ? selectedSessionTrack : localTrackFilter;
+  const typeFilter = selectedSessionType !== undefined ? selectedSessionType : localTypeFilter;
+
+  const setTrackFilter = (val: string) => {
+    if (onSessionTrackChange) onSessionTrackChange(val);
+    else setLocalTrackFilter(val);
+  };
+
+  const setTypeFilter = (val: string) => {
+    if (onSessionTypeChange) onSessionTypeChange(val);
+    else setLocalTypeFilter(val);
+  };
+
+  const availableTracks = tracks && tracks.length > 0
+    ? tracks.map((tr: any) => (typeof tr === 'string' ? tr : tr.track_name)).filter(Boolean)
+    : (Array.from(
+        new Set((sessions || []).map((s: any) => s.track_name).filter(Boolean))
+      ).sort() as string[]);
 
   const filteredSessions = (sessions || []).filter((s: any) => {
     const matchTrack = trackFilter === 'ALL' || s.track_name === trackFilter;
@@ -62,7 +90,7 @@ export function SessionsSection({ sessions, onOpenSession }: SessionsSectionProp
               className="bg-[#0b0d11] border border-gray-700 text-xs sm:text-sm text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-red-500"
             >
               <option value="ALL">{lang === 'en' ? 'All tracks' : 'Tutti i tracciati'}</option>
-              {availableTracks.map((tr) => (
+              {availableTracks.map((tr: string) => (
                 <option key={tr} value={tr}>
                   {tr}
                 </option>
