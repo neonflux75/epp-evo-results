@@ -1,5 +1,5 @@
-'use client';
-import React, { useState, useMemo } from 'react';
+// 'use client';
+import React, { useState } from 'react';
 import { Trophy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { NationFlag, TrackPreview } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
@@ -65,44 +65,57 @@ export function DriversRosterSection({
     }
   };
 
-  const sortedDrivers = useMemo(() => {
-    const dir = sortDir === 'asc' ? 1 : -1;
-    return [...(drivers || [])].sort((a, b) => {
-      const nameA = String(a.driver_name || '').trim();
-      const nameB = String(b.driver_name || '').trim();
-      const nameCmp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+  const normalizeNameForSort = (raw: any) =>
+    String(raw || '')
+      .trim()
+      .replace(/^[^a-zA-Z0-9\u00C0-\u017F]+/, '')
+      .toLowerCase();
 
-      if (sortKey === 'name') {
-        return nameCmp * dir;
-      }
+  const getCleanPct = (d: any) => {
+    const total = Number(d.total_laps || 0);
+    const valid = Number(d.valid_laps || 0);
+    return total > 0 ? Math.round((valid / total) * 100) : 0;
+  };
 
-      if (sortKey === 'wins') {
-        const winsDiff = Number(a.wins || 0) - Number(b.wins || 0);
-        if (winsDiff !== 0) return winsDiff * dir;
-        return nameCmp;
-      }
+  const uniqueDrivers = Array.from(
+    new Map(
+      (drivers || []).map((d: any, index: number) => [
+        String(d.driver_guid || `${d.driver_name}_${index}`),
+        d,
+      ])
+    ).values()
+  );
 
-      const totA = Number(a.total_laps || 0);
-      const totB = Number(b.total_laps || 0);
-      const ratioA = totA > 0 ? Number(a.valid_laps || 0) / totA : -1;
-      const ratioB = totB > 0 ? Number(b.valid_laps || 0) / totB : -1;
-      const cleanDiff = ratioA - ratioB;
-      if (Math.abs(cleanDiff) > 0.0001) return cleanDiff * dir;
-      return nameCmp;
-    });
-  }, [drivers, sortKey, sortDir]);
+  const sortedDrivers = [...uniqueDrivers].sort((a: any, b: any) => {
+    const nameA = normalizeNameForSort(a.driver_name);
+    const nameB = normalizeNameForSort(b.driver_name);
+    const nameCmp = nameA.localeCompare(nameB, 'it', { sensitivity: 'base' });
+
+    let cmp = 0;
+    if (sortKey === 'name') {
+      cmp = nameCmp;
+    } else if (sortKey === 'wins') {
+      cmp = Number(a.wins || 0) - Number(b.wins || 0);
+      if (cmp === 0) cmp = nameCmp;
+    } else if (sortKey === 'clean') {
+      cmp = getCleanPct(a) - getCleanPct(b);
+      if (cmp === 0) cmp = Number(a.valid_laps || 0) - Number(b.valid_laps || 0);
+      if (cmp === 0) cmp = nameCmp;
+    }
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
 
   const renderSortIcon = (key: SortKey) => {
-    if (sortKey !== key) return <ArrowUpDown className="w-3 h-3 text-gray-600" />;
+    if (sortKey !== key) return <ArrowUpDown className="w-3 h-3 text-gray-600 inline ml-1" />;
     return sortDir === 'asc' ? (
-      <ArrowUp className="w-3 h-3 text-red-400" />
+      <ArrowUp className="w-3 h-3 text-red-400 inline ml-1" />
     ) : (
-      <ArrowDown className="w-3 h-3 text-red-400" />
+      <ArrowDown className="w-3 h-3 text-red-400 inline ml-1" />
     );
   };
 
   return (
-    <section className="bg-[#131720] border border-gray-800/90 rounded-xl overflow-hidden">
+    <section translate="no" className="notranslate bg-[#131720] border border-gray-800/90 rounded-xl overflow-hidden">
       <div className="p-4 border-b border-gray-800">
         <h2 className="text-base font-bold text-white">{t.driversRoster.title}</h2>
         <p className="text-xs text-gray-400">{t.driversRoster.subtitle}</p>
@@ -111,43 +124,34 @@ export function DriversRosterSection({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-[#0e1118] text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-800 select-none">
-              <th className="py-3 px-4">
-                <button
-                  type="button"
-                  onClick={() => handleSort('name')}
-                  className="inline-flex items-center gap-1.5 hover:text-white transition cursor-pointer uppercase"
-                >
-                  <span>{t.common.driver}</span>
-                  {renderSortIcon('name')}
-                </button>
+              <th
+                onClick={() => handleSort('name')}
+                className="py-3 px-4 cursor-pointer hover:text-white transition"
+              >
+                <span>{t.common.driver}</span>
+                {renderSortIcon('name')}
               </th>
-              <th className="py-3 px-3 text-center">
-                <button
-                  type="button"
-                  onClick={() => handleSort('wins')}
-                  className="inline-flex items-center justify-center gap-1.5 hover:text-white transition cursor-pointer uppercase"
-                >
-                  <span>{t.driversRoster.raceWins}</span>
-                  {renderSortIcon('wins')}
-                </button>
+              <th
+                onClick={() => handleSort('wins')}
+                className="py-3 px-3 text-center cursor-pointer hover:text-white transition"
+              >
+                <span>{t.driversRoster.raceWins}</span>
+                {renderSortIcon('wins')}
               </th>
-              <th className="py-3 px-4 text-right w-40 sm:w-44">
-                <button
-                  type="button"
-                  onClick={() => handleSort('clean')}
-                  className="inline-flex items-center justify-end gap-1.5 hover:text-white transition cursor-pointer uppercase"
-                >
-                  <span>Clean</span>
-                  {renderSortIcon('clean')}
-                </button>
+              <th
+                onClick={() => handleSort('clean')}
+                className="py-3 px-4 text-right w-40 cursor-pointer hover:text-white transition"
+              >
+                <span>Clean</span>
+                {renderSortIcon('clean')}
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800/60 text-sm">
-            {sortedDrivers.map((d: any) => {
+          <tbody key={`${sortKey}-${sortDir}`} className="divide-y divide-gray-800/60 text-sm">
+            {sortedDrivers.map((d: any, idx: number) => {
               const total = Number(d.total_laps || 0);
               const valid = Number(d.valid_laps || 0);
-              const pct = total > 0 ? Math.round((valid / total) * 100) : 0;
+              const pct = getCleanPct(d);
 
               const pillStyle =
                 pct >= 85
@@ -157,18 +161,20 @@ export function DriversRosterSection({
                   : 'bg-red-500/15 text-red-400 border-red-500/40';
 
               return (
-                <tr key={d.driver_guid} className="hover:bg-gray-800/30">
+                <tr key={String(d.driver_guid || idx)} className="hover:bg-gray-800/30">
                   <td className="py-3 px-4 font-semibold text-white">
                     <button
                       type="button"
                       onClick={() => onOpenDriver(d.driver_guid, d.driver_name, d.nation)}
                       className="hover:text-red-400 hover:underline transition text-left cursor-pointer"
                     >
-                      {d.driver_name}
+                      <span>{String(d.driver_name || '').trim()}</span>
                     </button>
                     <NationFlag nation={d.nation} />
                   </td>
-                  <td className="py-3 px-3 text-center font-bold text-amber-400">{Number(d.wins || 0)}</td>
+                  <td className="py-3 px-3 text-center font-bold text-amber-400">
+                    <span>{d.wins || 0}</span>
+                  </td>
                   <td
                     className="py-3 px-4 text-right"
                     title={`${t.driversRoster.validLaps}: ${valid} / ${total}`}
