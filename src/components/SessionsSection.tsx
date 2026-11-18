@@ -1,12 +1,7 @@
 'use client';
 import React from 'react';
 import { Calendar, ChevronRight } from 'lucide-react';
-import {
-  TrackPreview,
-  normalizeSessionCategory,
-  getSessionTypeLabel,
-  formatLocalDateTime,
-} from '@/lib/evoUtils';
+import { TrackPreview, formatLocalDateTime } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 import { SessionDetailsModal } from './SessionDetailsModal';
 
@@ -23,6 +18,16 @@ interface SessionsSectionProps {
   onCloseSession: () => void;
   expandedDriverGuid: string | null;
   onToggleDriverLaps: (guid: string | null) => void;
+}
+
+type SessionKind = 'RACE' | 'QUALIFY' | 'WARMUP' | 'PRACTICE';
+
+function detectSessionKind(rawType?: string): SessionKind {
+  const s = String(rawType || '').toLowerCase();
+  if (s.includes('race') || s.includes('gara')) return 'RACE';
+  if (s.includes('qual')) return 'QUALIFY';
+  if (s.includes('warm')) return 'WARMUP';
+  return 'PRACTICE';
 }
 
 export function SessionsSection({
@@ -50,9 +55,8 @@ export function SessionsSection({
 
   const filteredSessions = (sessions || []).filter((s: any) => {
     const matchTrack = selectedSessionTrack === 'ALL' || s.track_name === selectedSessionTrack;
-    const matchType =
-      selectedSessionType === 'ALL' ||
-      normalizeSessionCategory(s.session_type) === selectedSessionType;
+    const kind = detectSessionKind(s.session_type);
+    const matchType = selectedSessionType === 'ALL' || kind === selectedSessionType;
     return matchTrack && matchType;
   });
 
@@ -63,6 +67,41 @@ export function SessionsSection({
     { id: 'PRACTICE', label: t.sessions.filters.Practice },
     { id: 'WARMUP', label: t.sessions.filters.Warmup },
   ];
+
+  const getBadgeProps = (kind: SessionKind) => {
+    if (kind === 'RACE') {
+      return {
+        label: lang === 'en' ? 'RACE' : 'GARA',
+        cls: 'bg-red-500/15 text-red-400 border-red-500/40',
+      };
+    }
+    if (kind === 'QUALIFY') {
+      return {
+        label: lang === 'en' ? 'QUALIFYING' : 'QUALIFICHE',
+        cls: 'bg-amber-500/15 text-amber-400 border-amber-500/40',
+      };
+    }
+    if (kind === 'WARMUP') {
+      return {
+        label: 'WARMUP',
+        cls: 'bg-purple-500/15 text-purple-400 border-purple-500/40',
+      };
+    }
+    return {
+      label: lang === 'en' ? 'PRACTICE' : 'PRATICA',
+      cls: 'bg-sky-500/15 text-sky-400 border-sky-500/40',
+    };
+  };
+
+  const getRightHeaderLabel = (kind: SessionKind) => {
+    if (kind === 'RACE') {
+      return lang === 'en' ? '1ST PLACE' : '1° CLASSIFICATO';
+    }
+    if (kind === 'QUALIFY') {
+      return 'POLE POSITION';
+    }
+    return lang === 'en' ? 'BEST LAP' : 'MIGLIOR TEMPO';
+  };
 
   return (
     <>
@@ -114,13 +153,8 @@ export function SessionsSection({
 
         <div className="divide-y divide-gray-800/70">
           {filteredSessions.map((s: any) => {
-            const cat = normalizeSessionCategory(s.session_type);
-            const isRace = cat === 'RACE';
-            const badgeStyle = isRace
-              ? 'bg-red-500/15 text-red-400 border-red-500/40'
-              : cat === 'QUALIFY'
-              ? 'bg-amber-500/15 text-amber-400 border-amber-500/40'
-              : 'bg-sky-500/15 text-sky-400 border-sky-500/40';
+            const kind = detectSessionKind(s.session_type);
+            const badge = getBadgeProps(kind);
 
             return (
               <div
@@ -131,9 +165,9 @@ export function SessionsSection({
                 <div className="flex items-center gap-3 min-w-0">
                   <TrackPreview trackName={s.track_name} className="w-16 h-10 shrink-0" />
                   <span
-                    className={`px-2 py-0.5 rounded border text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${badgeStyle}`}
+                    className={`px-2.5 py-0.5 rounded border text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${badge.cls}`}
                   >
-                    {getSessionTypeLabel(s.session_type)}
+                    {badge.label}
                   </span>
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-white truncate">
@@ -152,7 +186,7 @@ export function SessionsSection({
                   {s.winner_name && (
                     <div className="text-right">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                        {isRace ? (lang === 'en' ? '1ST PLACE' : '1° CLASSIFICATO') : 'POLE POSITION'}
+                        {getRightHeaderLabel(kind)}
                       </div>
                       <div className="text-sm font-bold text-white">{s.winner_name}</div>
                       {s.winner_car && (
