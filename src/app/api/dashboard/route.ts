@@ -148,6 +148,7 @@ export async function GET(request: Request) {
             nation,
             car_model,
             lap_time_ms as record_ms,
+            recorded_at,
             ROW_NUMBER() OVER (
               PARTITION BY track_name
               ORDER BY lap_time_ms ASC, id ASC
@@ -161,7 +162,8 @@ export async function GET(request: Request) {
           driver_name,
           nation,
           car_model,
-          record_ms
+          record_ms,
+          recorded_at
         FROM RankedTrackLaps
         WHERE rn = 1
         ORDER BY track_name ASC
