@@ -417,54 +417,124 @@ function parseLogTimestampMs(line) {
   return Number.isNaN(d.getTime()) ? null : d.getTime();
 }
 
-async function parseLiveLog(logPath, isRaceWeekend) {
+function readServerSessionDurations(serverDir, logHeadStr) {
+  const durations = {
+    practiceMs: 3600000,
+    qualyMs: 600000,
+    warmupMs: 300000,
+    raceMs: 1200000
+  };
+
+  // 1. Leggi i file JSON di configurazione nella cartella del singolo server
+  try {
+    const jsonFiles = fs.readdirSync(serverDir).filter(f => f.endsWith('.json'));
+    for (const jf of jsonFiles) {
+      const cfg = JSON.parse(fs.readFileSync(path.join(serverDir, jf), 'utf-8'));
+      const sessions = cfg.sessions || cfg.session_list || (cfg.event && cfg.event.sessions);
+      if (Array.isArray(sessions)) {
+        for (const s of sessions) {
+          const t = String(s.type || s.session_type || '').toLowerCase();
+          const mins = Number(s.duration_minutes || s.duration || 0);
+          const ms = Number(s.session_duration_ms || s.duration_ms || (mins > 0 ? mins * 60000 : 0));
+          if (ms > 0) {
+            if (t.includes('prac')) durations.practiceMs = ms;
+            else if (t.includes('qual')) durations.qualyMs = ms;
+            else if (t.includes('warm')) durations.warmupMs = ms;
+            else if (t.includes('race')) durations.raceMs = ms;
+          }
+        }
+      }
+      if (Number(cfg.practice_duration_minutes) > 0) durations.practiceMs = Number(cfg.practice_duration_minutes) * 60000;
+      if (Number(cfg.qualifying_duration_minutes) > 0) durations.qualyMs = Number(cfg.qualifying_duration_minutes) * 60000;
+      if (Number(cfg.warmup_duration_minutes) > 0) durations.warmupMs = Number(cfg.warmup_duration_minutes) * 60000;
+      if (Number(cfg.race_duration_minutes) > 0) durations.raceMs = Number(cfg.race_duration_minutes) * 60000;
+    }
+  } catch (e) {}
+
+  // 2. Sovrascrivi con i valori esatti presenti nella Season Definition all'inizio del log
+  if (logHeadStr) {
+    const blockRegex = /"session_type":\s*"?([A-Za-z0-9_]+)"?[\s\S]{0,250}?"session_duration_ms":\s*(\d+)/g;
+    let foundTyped = false;
+    for (const m of logHeadStr.matchAll(blockRegex)) {
+      const t = m[1].toLowerCase();
+      const ms = Number(m[2]);
+      if (ms > 0) {
+        foundTyped = true;
+        if (t.includes('prac')) durations.practiceMs = ms;
+        else if (t.includes('qual')) durations.qualyMs = ms;
+        else if (t.includes('warm')) durations.warmupMs = ms;
+        else if (t.includes('race')) durations.raceMs = ms;
+      }
+    }
+    if (!foundTyped) {
+      const rawMs = [...logHeadStr.matchAll(/"session_duration_ms":\s*(\d+)/g)].map(x => Number(x[1])).filter(n => n > 0);
+      if (rawMs.length >= 2) {
+        durations.raceMs = rawMs[0];
+        durations.qualyMs = rawMs[1];
+        durations.practiceMs = rawMs[1];
+      } else if (rawMs.length === 1) {
+        durations.practiceMs = rawMs[0];
+        durations.qualyMs = rawMs[0];
+        durations.raceMs = rawMs[0];
+      }
+    }
+  }
+
+  return durations;
+}
+
+
+async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
   let currentPlayers = 0;
   let sessionPhase = isRaceWeekend ? 'QUALIFICHE' : 'PRATICA';
-  let qualyDurationMs = 600000;
-  let raceDurationMs = 1200000;
   let sessionStartMs = null;
-  let activeDurationMs = 600000;
+  let activeDurationMs = 0;
   let isOvertime = false;
   const activeDrivers = new Map();
 
   try {
     const stat = fs.statSync(logPath);
-    const readSize = Math.min(stat.size, 4000000);
     const fd = fs.openSync(logPath, 'r');
-    const buffer = Buffer.alloc(readSize);
-    fs.readSync(fd, buffer, 0, readSize, stat.size - readSize);
+
+    const headSize = Math.min(stat.size, 65536);
+    const headBuffer = Buffer.alloc(headSize);
+    fs.readSync(fd, headBuffer, 0, headSize, 0);
+    const headText = headBuffer.toString('utf-8');
+
+    const tailSize = Math.min(stat.size, 4000000);
+    const tailBuffer = Buffer.alloc(tailSize);
+    fs.readSync(fd, tailBuffer, 0, tailSize, stat.size - tailSize);
     fs.closeSync(fd);
 
-    const content = buffer.toString('utf-8');
-    const lines = content.split(/\r?\n/);
-
-    // Leggi durate sessione dalla definizione stagione (se presente all'inizio del file)
-    const headChunk = content.slice(0, 60000);
-    const durMatches = [...headChunk.matchAll(/"session_duration_ms":\s*(\d+)/g)].map(x => Number(x[1]));
-    if (durMatches.length >= 2) {
-      raceDurationMs = durMatches[0];
-      qualyDurationMs = durMatches[1];
-    } else if (durMatches.length === 1) {
-      qualyDurationMs = durMatches[0];
-      raceDurationMs = durMatches[0];
-    }
+    const durations = readServerSessionDurations(serverDir, headText);
+    const lines = tailBuffer.toString('utf-8').split(/\r?\n/);
 
     for (const line of lines) {
       const ts = parseLogTimestampMs(line);
 
-      if (line.includes('TimeAttackRemote Qualifying created')) {
+      if (line.includes('TimeAttackRemote Practice created')) {
+        sessionPhase = 'PRATICA';
+        sessionStartMs = ts;
+        activeDurationMs = durations.practiceMs;
+        isOvertime = false;
+      } else if (line.includes('TimeAttackRemote Qualifying created')) {
         sessionPhase = isRaceWeekend ? 'QUALIFICHE' : 'PRATICA';
         sessionStartMs = ts;
-        activeDurationMs = qualyDurationMs;
+        activeDurationMs = isRaceWeekend ? durations.qualyMs : durations.practiceMs;
+        isOvertime = false;
+      } else if (line.includes('Warmup created') || line.includes('WarmUp created')) {
+        sessionPhase = 'WARMUP';
+        sessionStartMs = ts;
+        activeDurationMs = durations.warmupMs;
         isOvertime = false;
       } else if (line.includes('InstantRaceRemote Race created')) {
         sessionPhase = 'GARA';
         sessionStartMs = ts;
-        activeDurationMs = raceDurationMs;
+        activeDurationMs = durations.raceMs;
         isOvertime = false;
       } else if (line.includes('changing session phase 3 -> 4') && sessionPhase === 'GARA') {
         sessionStartMs = ts;
-        activeDurationMs = raceDurationMs;
+        activeDurationMs = durations.raceMs;
       } else if (line.includes('WAIT_LAST_LAP') || line.includes('Overtime_Waiting_For_Leader')) {
         isOvertime = true;
       }
@@ -509,6 +579,11 @@ async function parseLiveLog(logPath, isRaceWeekend) {
 
       const discMatch = line.match(/(\d{17})\s+(?:disconnected|timed out)/i);
       if (discMatch) activeDrivers.delete(discMatch[1]);
+    }
+
+    if (!sessionStartMs) {
+      sessionStartMs = stat.birthtimeMs || stat.mtimeMs;
+      activeDurationMs = sessionPhase === 'GARA' ? durations.raceMs : sessionPhase === 'QUALIFICHE' ? durations.qualyMs : durations.practiceMs;
     }
 
     if (currentPlayers === 0) {
@@ -614,7 +689,7 @@ async function scanServers(forceRefreshResults = false) {
           const stat = fs.statSync(latestLog);
           isOnline = (Date.now() - stat.mtime.getTime()) < 180000;
           if (isOnline) {
-            logData = await parseLiveLog(latestLog, isRaceWeekend);
+            logData = await parseLiveLog(latestLog, isRaceWeekend, serverDir);
           }
         }
       }
@@ -631,7 +706,7 @@ async function scanServers(forceRefreshResults = false) {
         trackId,
         trackLayout,
         sessionPhase: isOnline ? logData.sessionPhase : 'OFFLINE',
-        playersList: isOnline ? logData.playersList : []
+        playersList: isOnline ? logData.playersList : [],
         sessionEndTimeMs: isOnline ? logData.sessionEndTimeMs : null,
         isOvertime: isOnline ? logData.isOvertime : false,
 
@@ -660,17 +735,33 @@ async function scanServers(forceRefreshResults = false) {
   }
 }
 
+function shouldRealignOnStartup() {
+  try {
+    const iniPath = path.join(__dirname, 'importer.ini');
+    if (!fs.existsSync(iniPath)) return false;
+    const parsed = ini.parse(fs.readFileSync(iniPath, 'utf-8'));
+    const val = parsed.riallineamento ?? (parsed.importer && parsed.importer.riallineamento);
+    return val === true || String(val).trim().toLowerCase() === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
 (async () => {
   try {
     console.log('Connessione al database cloud Aiven PostgreSQL in corso...');
     await initDb();
     await preloadProcessedHashes();
-    console.log('Riallineamento risultati sessioni esistenti (griglia, DSQ, penalità, deduplica piloti)...');
-    await scanServers(true);
+    const doRealign = shouldRealignOnStartup();
+    if (doRealign) {
+      console.log('[IMPORTER.INI] riallineamento=true -> Aggiornamento di tutte le sessioni esistenti su Aiven...');
+    }
     console.log(`Connesso a Aiven PostgreSQL! Avvio monitoraggio server Assetto Corsa EVO (ogni ${POLL_MS / 1000}s)...`);
+    await scanServers(doRealign);
     setInterval(() => scanServers(false), POLL_MS);
   } catch (err) {
     console.error('[ERRORE AVVIO AIVEN]', err.message);
     process.exit(1);
   }
 })();
+

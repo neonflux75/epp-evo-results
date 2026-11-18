@@ -1,6 +1,6 @@
 'use client';
-import React from 'react';
-import { Trophy } from 'lucide-react';
+import React, { useState } from 'react';
+import { Trophy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { NationFlag, TrackPreview } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 import { LapTimeWithDate } from './LapTimeWithDate';
@@ -42,6 +42,9 @@ export function TrackRecordsSection({ trackRecords }: { trackRecords: any[] }) {
   );
 }
 
+type SortKey = 'name' | 'wins' | 'clean';
+type SortDir = 'asc' | 'desc';
+
 export function DriversRosterSection({
   drivers,
   onOpenDriver,
@@ -50,10 +53,54 @@ export function DriversRosterSection({
   onOpenDriver: (guid: string, name?: string, nation?: string) => void;
 }) {
   const { t } = useLanguage();
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
-  const sortedDrivers = [...(drivers || [])].sort((a, b) =>
-    String(a.driver_name || '').localeCompare(String(b.driver_name || ''), undefined, { sensitivity: 'base' })
-  );
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' ? 'asc' : 'desc');
+    }
+  };
+
+  const getCleanPct = (d: any) => {
+    const total = Number(d.total_laps || 0);
+    const valid = Number(d.valid_laps || 0);
+    return total > 0 ? Math.round((valid / total) * 100) : 0;
+  };
+
+  const sortedDrivers = [...(drivers || [])].sort((a, b) => {
+    let cmp = 0;
+    if (sortKey === 'name') {
+      cmp = String(a.driver_name || '').localeCompare(String(b.driver_name || ''), undefined, {
+        sensitivity: 'base',
+      });
+    } else if (sortKey === 'wins') {
+      cmp = Number(a.wins || 0) - Number(b.wins || 0);
+      if (cmp === 0) {
+        cmp = String(a.driver_name || '').localeCompare(String(b.driver_name || ''), undefined, {
+          sensitivity: 'base',
+        });
+      }
+    } else if (sortKey === 'clean') {
+      cmp = getCleanPct(a) - getCleanPct(b);
+      if (cmp === 0) {
+        cmp = Number(a.valid_laps || 0) - Number(b.valid_laps || 0);
+      }
+    }
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const renderSortIcon = (key: SortKey) => {
+    if (sortKey !== key) return <ArrowUpDown className="w-3 h-3 text-gray-600" />;
+    return sortDir === 'asc' ? (
+      <ArrowUp className="w-3 h-3 text-red-400" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-red-400" />
+    );
+  };
 
   return (
     <section className="bg-[#131720] border border-gray-800/90 rounded-xl overflow-hidden">
@@ -64,18 +111,44 @@ export function DriversRosterSection({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-[#0e1118] text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-800">
-              <th className="py-3 px-4">{t.common.driver}</th>
-              <th className="py-3 px-3 text-center">{t.driversRoster.raceWins}</th>
-              <th className="py-3 px-3 w-36 sm:w-40">Safety Rating</th>
-              <th className="py-3 px-4 text-right">{t.driversRoster.bestEver}</th>
+            <tr className="bg-[#0e1118] text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-800 select-none">
+              <th className="py-3 px-4">
+                <button
+                  type="button"
+                  onClick={() => handleSort('name')}
+                  className="inline-flex items-center gap-1.5 hover:text-white transition cursor-pointer uppercase"
+                >
+                  <span>{t.common.driver}</span>
+                  {renderSortIcon('name')}
+                </button>
+              </th>
+              <th className="py-3 px-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => handleSort('wins')}
+                  className="inline-flex items-center justify-center gap-1.5 hover:text-white transition cursor-pointer uppercase"
+                >
+                  <span>{t.driversRoster.raceWins}</span>
+                  {renderSortIcon('wins')}
+                </button>
+              </th>
+              <th className="py-3 px-4 text-right w-40 sm:w-44">
+                <button
+                  type="button"
+                  onClick={() => handleSort('clean')}
+                  className="inline-flex items-center justify-end gap-1.5 hover:text-white transition cursor-pointer uppercase"
+                >
+                  <span>Clean</span>
+                  {renderSortIcon('clean')}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/60 text-sm">
             {sortedDrivers.map((d: any) => {
               const total = Number(d.total_laps || 0);
               const valid = Number(d.valid_laps || 0);
-              const pct = total > 0 ? Math.round((valid / total) * 100) : 0;
+              const pct = getCleanPct(d);
 
               const pillStyle =
                 pct >= 85
@@ -83,8 +156,6 @@ export function DriversRosterSection({
                   : pct >= 65
                   ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
                   : 'bg-red-500/15 text-red-400 border-red-500/40';
-
-              const bestDate = d.best_recorded_at || d.best_lap_date || d.recorded_at || '';
 
               return (
                 <tr key={d.driver_guid} className="hover:bg-gray-800/30">
@@ -100,10 +171,10 @@ export function DriversRosterSection({
                   </td>
                   <td className="py-3 px-3 text-center font-bold text-amber-400">{d.wins || 0}</td>
                   <td
-                    className="py-3 px-3"
+                    className="py-3 px-4 text-right"
                     title={`${t.driversRoster.validLaps}: ${valid} / ${total}`}
                   >
-                    <div className="inline-flex items-center gap-2">
+                    <div className="inline-flex items-center justify-end gap-2">
                       <div className="w-16 sm:w-20 h-1.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700/70">
                         <div
                           className="h-full rounded-full transition-all duration-300"
@@ -119,13 +190,6 @@ export function DriversRosterSection({
                         {pct}%
                       </span>
                     </div>
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono text-gray-200">
-                    <LapTimeWithDate
-                      ms={d.best_ever_ms}
-                      recordedAt={bestDate}
-                      className="font-mono text-gray-200"
-                    />
                   </td>
                 </tr>
               );
