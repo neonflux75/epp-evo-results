@@ -1,8 +1,9 @@
 'use client';
 import React from 'react';
-import { formatMs, formatGap } from '@/lib/utils';
+import { formatMs, formatGap } from '@/lib/evoUtils';
 import { NationFlag } from './SharedUI';
 import { useLanguage } from '@/context/LanguageContext';
+import { LapTimeWithDate } from './LapTimeWithDate';
 
 interface LeaderboardSectionProps {
   tracks: any[];
@@ -77,6 +78,7 @@ export function LeaderboardSection({
           </div>
         </div>
       </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -122,7 +124,9 @@ export function LeaderboardSection({
                 <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">{formatMs(row.sector_1_ms)}</td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">{formatMs(row.sector_2_ms)}</td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">{formatMs(row.sector_3_ms)}</td>
-                <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">{formatMs(row.best_lap_ms)}</td>
+                <td className="py-3 px-4 text-right">
+                  <LapTimeWithDate ms={row.best_lap_ms} recordedAt={row.last_set} />
+                </td>
                 <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">
                   {formatGap(row.best_lap_ms, bestLeaderboardTime)}
                 </td>
