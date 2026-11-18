@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { Trophy } from 'lucide-react';
-import { NationFlag, TrackPreview, formatMs } from '@/lib/evoUtils';
+import { NationFlag, TrackPreview, formatMs, formatLocalDateTime } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 
 export function TrackRecordsSection({ trackRecords }: { trackRecords: any[] }) {
@@ -44,7 +44,12 @@ export function DriversRosterSection({
   drivers: any[];
   onOpenDriver: (guid: string, name?: string, nation?: string) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+
+  const sortedDrivers = [...(drivers || [])].sort((a, b) =>
+    String(a.driver_name || '').localeCompare(String(b.driver_name || ''), undefined, { sensitivity: 'base' })
+  );
+
   return (
     <section className="bg-[#131720] border border-gray-800/90 rounded-xl overflow-hidden">
       <div className="p-4 border-b border-gray-800">
@@ -57,30 +62,65 @@ export function DriversRosterSection({
             <tr className="bg-[#0e1118] text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-800">
               <th className="py-3 px-4">{t.common.driver}</th>
               <th className="py-3 px-4 text-center">{t.driversRoster.raceWins}</th>
-              <th className="py-3 px-4 text-center">{t.driversRoster.validLaps}</th>
-              <th className="py-3 px-4 text-center">{t.driversRoster.totalLaps}</th>
+              <th className="py-3 px-4 w-48">Safety Rating</th>
               <th className="py-3 px-4 text-right">{t.driversRoster.bestEver}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/60 text-sm">
-            {(drivers || []).map((d: any) => (
-              <tr key={d.driver_guid} className="hover:bg-gray-800/30">
-                <td className="py-3 px-4 font-semibold text-white">
-                  <button
-                    type="button"
-                    onClick={() => onOpenDriver(d.driver_guid, d.driver_name, d.nation)}
-                    className="hover:text-red-400 hover:underline transition text-left cursor-pointer"
+            {sortedDrivers.map((d: any) => {
+              const total = Number(d.total_laps || 0);
+              const valid = Number(d.valid_laps || 0);
+              const pct = total > 0 ? Math.round((valid / total) * 100) : 0;
+              const barColor =
+                pct >= 85 ? 'bg-emerald-500' : pct >= 65 ? 'bg-amber-400' : 'bg-red-500';
+              const textColor =
+                pct >= 85 ? 'text-emerald-400' : pct >= 65 ? 'text-amber-400' : 'text-red-400';
+
+              const bestDate = d.best_lap_date || d.best_recorded_at || d.recorded_at || '';
+              const bestTooltip = bestDate
+                ? `${lang === 'en' ? 'Recorded on' : 'Registrato il'}: ${formatLocalDateTime(bestDate)}`
+                : undefined;
+
+              return (
+                <tr key={d.driver_guid} className="hover:bg-gray-800/30">
+                  <td className="py-3 px-4 font-semibold text-white">
+                    <button
+                      type="button"
+                      onClick={() => onOpenDriver(d.driver_guid, d.driver_name, d.nation)}
+                      className="hover:text-red-400 hover:underline transition text-left cursor-pointer"
+                    >
+                      {d.driver_name}
+                    </button>
+                    <NationFlag nation={d.nation} />
+                  </td>
+                  <td className="py-3 px-4 text-center font-bold text-amber-400">{d.wins || 0}</td>
+                  <td
+                    className="py-3 px-4"
+                    title={`${t.driversRoster.validLaps}: ${valid} / ${total}`}
                   >
-                    {d.driver_name}
-                  </button>
-                  <NationFlag nation={d.nation} />
-                </td>
-                <td className="py-3 px-4 text-center font-bold text-amber-400">{d.wins || 0}</td>
-                <td className="py-3 px-4 text-center text-emerald-400 font-mono">{d.valid_laps}</td>
-                <td className="py-3 px-4 text-center text-gray-400 font-mono">{d.total_laps}</td>
-                <td className="py-3 px-4 text-right font-mono text-gray-200">{formatMs(d.best_ever_ms)}</td>
-              </tr>
-            ))}
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden border border-gray-700/70">
+                        <div
+                          className={`h-full ${barColor} transition-all duration-300`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className={`font-mono text-xs font-bold w-10 text-right ${textColor}`}>
+                        {pct}%
+                      </span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono text-gray-200">
+                    <span
+                      title={bestTooltip}
+                      className={bestTooltip ? 'cursor-help border-b border-dotted border-gray-600' : ''}
+                    >
+                      {formatMs(d.best_ever_ms)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
