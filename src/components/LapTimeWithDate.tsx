@@ -17,13 +17,14 @@ export function LapTimeWithDate({
   const { lang } = useLanguage();
   const [open, setOpen] = useState(false);
 
+  const safeMs = Number(ms || 0);
   const formattedDate = recordedAt ? formatLocalDateTime(recordedAt) : '';
   const tooltip = formattedDate
     ? `${lang === 'en' ? 'Recorded on' : 'Registrato il'}: ${formattedDate}`
     : undefined;
 
   if (!formattedDate) {
-    return <span className={className}>{formatMs(ms)}</span>;
+    return <span className={className}>{formatMs(safeMs)}</span>;
   }
 
   return (
@@ -37,7 +38,7 @@ export function LapTimeWithDate({
         title={tooltip}
         className={`${className} cursor-pointer border-b border-dotted border-emerald-500/40 hover:opacity-90 transition`}
       >
-        {formatMs(ms)}
+        {formatMs(safeMs)}
       </button>
       {open && (
         <span className="mt-1 px-2 py-0.5 rounded bg-[#0b0d11] border border-gray-700 text-[10px] font-sans font-normal text-gray-300 whitespace-nowrap shadow z-10">
