@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { Trophy } from 'lucide-react';
 import { NationFlag, TrackPreview, formatMs, formatLocalDateTime } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
@@ -45,6 +45,7 @@ export function DriversRosterSection({
   onOpenDriver: (guid: string, name?: string, nation?: string) => void;
 }) {
   const { t, lang } = useLanguage();
+  const [openDateGuid, setOpenDateGuid] = useState<string | null>(null);
 
   const sortedDrivers = [...(drivers || [])].sort((a, b) =>
     String(a.driver_name || '').localeCompare(String(b.driver_name || ''), undefined, { sensitivity: 'base' })
@@ -61,8 +62,8 @@ export function DriversRosterSection({
           <thead>
             <tr className="bg-[#0e1118] text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-800">
               <th className="py-3 px-4">{t.common.driver}</th>
-              <th className="py-3 px-4 text-center">{t.driversRoster.raceWins}</th>
-              <th className="py-3 px-4 w-48">Safety Rating</th>
+              <th className="py-3 px-3 text-center">{t.driversRoster.raceWins}</th>
+              <th className="py-3 px-3 w-36 sm:w-40">Safety Rating</th>
               <th className="py-3 px-4 text-right">{t.driversRoster.bestEver}</th>
             </tr>
           </thead>
@@ -71,15 +72,20 @@ export function DriversRosterSection({
               const total = Number(d.total_laps || 0);
               const valid = Number(d.valid_laps || 0);
               const pct = total > 0 ? Math.round((valid / total) * 100) : 0;
-              const barColor =
-                pct >= 85 ? 'bg-emerald-500' : pct >= 65 ? 'bg-amber-400' : 'bg-red-500';
-              const textColor =
-                pct >= 85 ? 'text-emerald-400' : pct >= 65 ? 'text-amber-400' : 'text-red-400';
 
-              const bestDate = d.best_lap_date || d.best_recorded_at || d.recorded_at || '';
-              const bestTooltip = bestDate
-                ? `${lang === 'en' ? 'Recorded on' : 'Registrato il'}: ${formatLocalDateTime(bestDate)}`
+              const pillStyle =
+                pct >= 85
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
+                  : pct >= 65
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+                  : 'bg-red-500/15 text-red-400 border-red-500/40';
+
+              const bestDate = d.best_recorded_at || d.best_lap_date || d.recorded_at || '';
+              const formattedDate = bestDate ? formatLocalDateTime(bestDate) : '';
+              const bestTooltip = formattedDate
+                ? `${lang === 'en' ? 'Recorded on' : 'Registrato il'}: ${formattedDate}`
                 : undefined;
+              const isDateVisible = openDateGuid === d.driver_guid;
 
               return (
                 <tr key={d.driver_guid} className="hover:bg-gray-800/30">
@@ -93,30 +99,51 @@ export function DriversRosterSection({
                     </button>
                     <NationFlag nation={d.nation} />
                   </td>
-                  <td className="py-3 px-4 text-center font-bold text-amber-400">{d.wins || 0}</td>
+                  <td className="py-3 px-3 text-center font-bold text-amber-400">{d.wins || 0}</td>
                   <td
-                    className="py-3 px-4"
+                    className="py-3 px-3"
                     title={`${t.driversRoster.validLaps}: ${valid} / ${total}`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden border border-gray-700/70">
+                    <div className="inline-flex items-center gap-2">
+                      <div className="w-16 sm:w-20 h-1.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700/70">
                         <div
-                          className={`h-full ${barColor} transition-all duration-300`}
-                          style={{ width: `${pct}%` }}
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{
+                            width: `${pct}%`,
+                            background: 'linear-gradient(90deg, #ef4444 0%, #eab308 50%, #10b981 100%)',
+                          }}
                         />
                       </div>
-                      <span className={`font-mono text-xs font-bold w-10 text-right ${textColor}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded-full border font-mono text-[10px] font-extrabold leading-none ${pillStyle}`}
+                      >
                         {pct}%
                       </span>
                     </div>
                   </td>
                   <td className="py-3 px-4 text-right font-mono text-gray-200">
-                    <span
-                      title={bestTooltip}
-                      className={bestTooltip ? 'cursor-help border-b border-dotted border-gray-600' : ''}
-                    >
-                      {formatMs(d.best_ever_ms)}
-                    </span>
+                    <div className="inline-flex flex-col items-end">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          formattedDate &&
+                          setOpenDateGuid(isDateVisible ? null : d.driver_guid)
+                        }
+                        title={bestTooltip}
+                        className={
+                          formattedDate
+                            ? 'cursor-pointer border-b border-dotted border-gray-600 hover:text-emerald-400 transition'
+                            : 'cursor-default'
+                        }
+                      >
+                        {formatMs(d.best_ever_ms)}
+                      </button>
+                      {isDateVisible && formattedDate && (
+                        <span className="mt-1 px-2 py-0.5 rounded bg-[#0b0d11] border border-gray-700 text-[10px] text-gray-300 whitespace-nowrap shadow">
+                          {formattedDate}
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
