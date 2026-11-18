@@ -175,11 +175,11 @@ export async function GET(request: Request) {
           COUNT(l.id) as total_laps,
           SUM(CASE WHEN l.is_valid = 1 THEN 1 ELSE 0 END) as valid_laps,
           MIN(CASE WHEN l.is_valid = 1 AND l.lap_time_ms > 0 THEN l.lap_time_ms ELSE NULL END) as best_ever_ms,
+          (SELECT recorded_at FROM laps l2 WHERE l2.driver_guid = l.driver_guid AND l2.is_valid = 1 AND l2.lap_time_ms > 0 ORDER BY l2.lap_time_ms ASC, l2.id ASC LIMIT 1) as best_recorded_at,
           (SELECT COUNT(*) FROM session_results sr JOIN sessions s ON sr.session_id = s.id WHERE sr.driver_guid = l.driver_guid AND sr.position = 1 AND LOWER(s.session_type) LIKE '%race%') as wins
         FROM laps l
         GROUP BY l.driver_guid, l.driver_name
-        ORDER BY wins DESC, valid_laps DESC
-        LIMIT 100
+        ORDER BY LOWER(TRIM(l.driver_name)) ASC
       `);
 
       const basePayload = {
