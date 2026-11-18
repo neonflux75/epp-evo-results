@@ -67,9 +67,11 @@ export function DriverProfileModal({ profile, loading, onClose }: DriverProfileM
                   <tr>
                     <th className="py-2.5 px-3">{t.common.track}</th>
                     <th className="py-2.5 px-3">{t.common.vehicle}</th>
-                    <th className="py-2.5 px-4 text-center whitespace-nowrap w-px">{t.driverModal.overallRank}</th>
-                    <th className="py-2.5 px-4 text-center whitespace-nowrap w-px">{t.driverModal.carRank}</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap">S1 / S2 / S3</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap w-px">{t.driverModal.overallRank}</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap w-px">{t.driverModal.carRank}</th>
+                    <th className="py-2.5 px-2.5 text-right whitespace-nowrap">{t.common.sector1}</th>
+                    <th className="py-2.5 px-2.5 text-right whitespace-nowrap">{t.common.sector2}</th>
+                    <th className="py-2.5 px-2.5 text-right whitespace-nowrap">{t.common.sector3}</th>
                     <th className="py-2.5 px-3 text-right whitespace-nowrap">{t.common.bestLap}</th>
                   </tr>
                 </thead>
@@ -83,7 +85,7 @@ export function DriverProfileModal({ profile, loading, onClose }: DriverProfileM
                         </div>
                       </td>
                       <td className="py-2.5 px-3 text-xs text-gray-300">{rec.car_model}</td>
-                      <td className="py-2.5 px-4 text-center font-mono whitespace-nowrap w-px">
+                      <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap w-px">
                         <div className="inline-flex items-center justify-center gap-1">
                           <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.overall_rank === 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : rec.overall_rank <= 3 ? 'bg-gray-700/60 text-gray-200' : 'bg-gray-800/80 text-gray-300'}`}>
                             #{rec.overall_rank}
@@ -91,7 +93,7 @@ export function DriverProfileModal({ profile, loading, onClose }: DriverProfileM
                           <span className="text-[11px] text-gray-500">/ {rec.overall_total}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-4 text-center font-mono whitespace-nowrap w-px">
+                      <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap w-px">
                         <div className="inline-flex items-center justify-center gap-1">
                           <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.car_rank === 1 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-gray-800/80 text-gray-300'}`}>
                             #{rec.car_rank}
@@ -99,8 +101,14 @@ export function DriverProfileModal({ profile, loading, onClose }: DriverProfileM
                           <span className="text-[11px] text-gray-500">/ {rec.car_total}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-[11px] text-gray-400 whitespace-nowrap">
-                        {formatMs(rec.sector_1_ms)} • {formatMs(rec.sector_2_ms)} • {formatMs(rec.sector_3_ms)}
+                      <td className="py-2.5 px-2.5 text-right font-mono text-[11px] text-gray-400 whitespace-nowrap">
+                        {formatMs(rec.sector_1_ms)}
+                      </td>
+                      <td className="py-2.5 px-2.5 text-right font-mono text-[11px] text-gray-400 whitespace-nowrap">
+                        {formatMs(rec.sector_2_ms)}
+                      </td>
+                      <td className="py-2.5 px-2.5 text-right font-mono text-[11px] text-gray-400 whitespace-nowrap">
+                        {formatMs(rec.sector_3_ms)}
                       </td>
                       <td className="py-2.5 px-3 text-right whitespace-nowrap">
                         <LapTimeWithDate ms={rec.best_lap_ms} recordedAt={rec.recorded_at} />
