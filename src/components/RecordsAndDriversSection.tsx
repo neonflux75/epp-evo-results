@@ -1,8 +1,9 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 import { Trophy } from 'lucide-react';
-import { NationFlag, TrackPreview, formatMs, formatLocalDateTime } from '@/lib/evoUtils';
+import { NationFlag, TrackPreview } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
+import { LapTimeWithDate } from './LapTimeWithDate';
 
 export function TrackRecordsSection({ trackRecords }: { trackRecords: any[] }) {
   const { t } = useLanguage();
@@ -29,7 +30,11 @@ export function TrackRecordsSection({ trackRecords }: { trackRecords: any[] }) {
               </p>
               <p className="text-xs text-gray-400">{rec.car_model}</p>
             </div>
-            <span className="text-xl font-mono font-black text-emerald-400">{formatMs(rec.record_ms)}</span>
+            <LapTimeWithDate
+              ms={rec.record_ms}
+              recordedAt={rec.recorded_at}
+              className="text-xl font-mono font-black text-emerald-400"
+            />
           </div>
         </div>
       ))}
@@ -44,8 +49,7 @@ export function DriversRosterSection({
   drivers: any[];
   onOpenDriver: (guid: string, name?: string, nation?: string) => void;
 }) {
-  const { t, lang } = useLanguage();
-  const [openDateGuid, setOpenDateGuid] = useState<string | null>(null);
+  const { t } = useLanguage();
 
   const sortedDrivers = [...(drivers || [])].sort((a, b) =>
     String(a.driver_name || '').localeCompare(String(b.driver_name || ''), undefined, { sensitivity: 'base' })
@@ -81,11 +85,6 @@ export function DriversRosterSection({
                   : 'bg-red-500/15 text-red-400 border-red-500/40';
 
               const bestDate = d.best_recorded_at || d.best_lap_date || d.recorded_at || '';
-              const formattedDate = bestDate ? formatLocalDateTime(bestDate) : '';
-              const bestTooltip = formattedDate
-                ? `${lang === 'en' ? 'Recorded on' : 'Registrato il'}: ${formattedDate}`
-                : undefined;
-              const isDateVisible = openDateGuid === d.driver_guid;
 
               return (
                 <tr key={d.driver_guid} className="hover:bg-gray-800/30">
@@ -122,28 +121,11 @@ export function DriversRosterSection({
                     </div>
                   </td>
                   <td className="py-3 px-4 text-right font-mono text-gray-200">
-                    <div className="inline-flex flex-col items-end">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          formattedDate &&
-                          setOpenDateGuid(isDateVisible ? null : d.driver_guid)
-                        }
-                        title={bestTooltip}
-                        className={
-                          formattedDate
-                            ? 'cursor-pointer border-b border-dotted border-gray-600 hover:text-emerald-400 transition'
-                            : 'cursor-default'
-                        }
-                      >
-                        {formatMs(d.best_ever_ms)}
-                      </button>
-                      {isDateVisible && formattedDate && (
-                        <span className="mt-1 px-2 py-0.5 rounded bg-[#0b0d11] border border-gray-700 text-[10px] text-gray-300 whitespace-nowrap shadow">
-                          {formattedDate}
-                        </span>
-                      )}
-                    </div>
+                    <LapTimeWithDate
+                      ms={d.best_ever_ms}
+                      recordedAt={bestDate}
+                      className="font-mono text-gray-200"
+                    />
                   </td>
                 </tr>
               );
