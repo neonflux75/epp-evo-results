@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 import { formatMs, formatLocalDateTime } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -15,7 +15,6 @@ export function LapTimeWithDate({
   className = 'font-mono font-bold text-emerald-400',
 }: LapTimeWithDateProps) {
   const { lang } = useLanguage();
-  const [open, setOpen] = useState(false);
 
   const safeMs = Number(ms || 0);
   const formattedDate = recordedAt ? formatLocalDateTime(recordedAt) : '';
@@ -23,28 +22,9 @@ export function LapTimeWithDate({
     ? `${lang === 'en' ? 'Recorded on' : 'Registrato il'}: ${formattedDate}`
     : undefined;
 
-  if (!formattedDate) {
-    return <span className={className}>{formatMs(safeMs)}</span>;
-  }
-
   return (
-    <span className="inline-flex flex-col items-end">
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        title={tooltip}
-        className={`${className} cursor-pointer border-b border-dotted border-emerald-500/40 hover:opacity-90 transition`}
-      >
-        {formatMs(safeMs)}
-      </button>
-      {open && (
-        <span className="mt-1 px-2 py-0.5 rounded bg-[#0b0d11] border border-gray-700 text-[10px] font-sans font-normal text-gray-300 whitespace-nowrap shadow z-10">
-          {formattedDate}
-        </span>
-      )}
+    <span title={tooltip} className={className}>
+      {formatMs(safeMs)}
     </span>
   );
 }

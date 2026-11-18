@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Trophy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { NationFlag, TrackPreview } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
@@ -65,33 +65,32 @@ export function DriversRosterSection({
     }
   };
 
-  const getCleanPct = (d: any) => {
-    const total = Number(d.total_laps || 0);
-    const valid = Number(d.valid_laps || 0);
-    return total > 0 ? Math.round((valid / total) * 100) : 0;
-  };
+  const sortedDrivers = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...(drivers || [])].sort((a, b) => {
+      const nameA = String(a.driver_name || '').trim();
+      const nameB = String(b.driver_name || '').trim();
+      const nameCmp = nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
 
-  const sortedDrivers = [...(drivers || [])].sort((a, b) => {
-    let cmp = 0;
-    if (sortKey === 'name') {
-      cmp = String(a.driver_name || '').localeCompare(String(b.driver_name || ''), undefined, {
-        sensitivity: 'base',
-      });
-    } else if (sortKey === 'wins') {
-      cmp = Number(a.wins || 0) - Number(b.wins || 0);
-      if (cmp === 0) {
-        cmp = String(a.driver_name || '').localeCompare(String(b.driver_name || ''), undefined, {
-          sensitivity: 'base',
-        });
+      if (sortKey === 'name') {
+        return nameCmp * dir;
       }
-    } else if (sortKey === 'clean') {
-      cmp = getCleanPct(a) - getCleanPct(b);
-      if (cmp === 0) {
-        cmp = Number(a.valid_laps || 0) - Number(b.valid_laps || 0);
+
+      if (sortKey === 'wins') {
+        const winsDiff = Number(a.wins || 0) - Number(b.wins || 0);
+        if (winsDiff !== 0) return winsDiff * dir;
+        return nameCmp;
       }
-    }
-    return sortDir === 'asc' ? cmp : -cmp;
-  });
+
+      const totA = Number(a.total_laps || 0);
+      const totB = Number(b.total_laps || 0);
+      const ratioA = totA > 0 ? Number(a.valid_laps || 0) / totA : -1;
+      const ratioB = totB > 0 ? Number(b.valid_laps || 0) / totB : -1;
+      const cleanDiff = ratioA - ratioB;
+      if (Math.abs(cleanDiff) > 0.0001) return cleanDiff * dir;
+      return nameCmp;
+    });
+  }, [drivers, sortKey, sortDir]);
 
   const renderSortIcon = (key: SortKey) => {
     if (sortKey !== key) return <ArrowUpDown className="w-3 h-3 text-gray-600" />;
@@ -148,7 +147,7 @@ export function DriversRosterSection({
             {sortedDrivers.map((d: any) => {
               const total = Number(d.total_laps || 0);
               const valid = Number(d.valid_laps || 0);
-              const pct = getCleanPct(d);
+              const pct = total > 0 ? Math.round((valid / total) * 100) : 0;
 
               const pillStyle =
                 pct >= 85
@@ -169,7 +168,7 @@ export function DriversRosterSection({
                     </button>
                     <NationFlag nation={d.nation} />
                   </td>
-                  <td className="py-3 px-3 text-center font-bold text-amber-400">{d.wins || 0}</td>
+                  <td className="py-3 px-3 text-center font-bold text-amber-400">{Number(d.wins || 0)}</td>
                   <td
                     className="py-3 px-4 text-right"
                     title={`${t.driversRoster.validLaps}: ${valid} / ${total}`}
