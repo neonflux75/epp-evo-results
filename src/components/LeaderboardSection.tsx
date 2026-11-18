@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { formatMs, formatGap } from '@/lib/evoUtils';
 import { NationFlag } from './SharedUI';
 import { useLanguage } from '@/context/LanguageContext';
@@ -8,6 +8,7 @@ import { LapTimeWithDate } from './LapTimeWithDate';
 interface LeaderboardSectionProps {
   tracks: any[];
   leaderboard: any[];
+  trackBestSectors?: any[];
   selectedTrack: string;
   selectedCar: string;
   onTrackChange: (track: string) => void;
@@ -18,6 +19,7 @@ interface LeaderboardSectionProps {
 export function LeaderboardSection({
   tracks,
   leaderboard,
+  trackBestSectors = [],
   selectedTrack,
   selectedCar,
   onTrackChange,
@@ -38,6 +40,31 @@ export function LeaderboardSection({
   );
 
   const bestLeaderboardTime = filteredLeaderboard.length > 0 ? filteredLeaderboard[0].best_lap_ms : 0;
+
+  const bestSectorsByTrack = useMemo(() => {
+    const map = new Map<string, { s1: number; s2: number; s3: number }>();
+    for (const item of trackBestSectors || []) {
+      if (!item?.track_name) continue;
+      map.set(String(item.track_name), {
+        s1: Number(item.best_s1 || 0),
+        s2: Number(item.best_s2 || 0),
+        s3: Number(item.best_s3 || 0),
+      });
+    }
+    for (const row of leaderboard || []) {
+      const tr = String(row?.track_name || '');
+      if (!tr) continue;
+      const cur = map.get(tr) || { s1: 0, s2: 0, s3: 0 };
+      const s1 = Number(row.sector_1_ms || 0);
+      const s2 = Number(row.sector_2_ms || 0);
+      const s3 = Number(row.sector_3_ms || 0);
+      if (s1 > 0 && (cur.s1 === 0 || s1 < cur.s1)) cur.s1 = s1;
+      if (s2 > 0 && (cur.s2 === 0 || s2 < cur.s2)) cur.s2 = s2;
+      if (s3 > 0 && (cur.s3 === 0 || s3 < cur.s3)) cur.s3 = s3;
+      map.set(tr, cur);
+    }
+    return map;
+  }, [trackBestSectors, leaderboard]);
 
   return (
     <section className="bg-[#131720] border border-gray-800/90 rounded-xl overflow-hidden">
@@ -95,43 +122,56 @@ export function LeaderboardSection({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/60 text-sm">
-            {filteredLeaderboard.map((row: any, i: number) => (
-              <tr key={`${row.driver_guid}-${row.car_model}-${row.track_name}`} className="hover:bg-gray-800/30 transition">
-                <td className="py-3 px-4 font-mono font-bold">
-                  {i === 0 ? (
-                    <span className="text-amber-400">#1</span>
-                  ) : i === 1 ? (
-                    <span className="text-gray-300">#2</span>
-                  ) : i === 2 ? (
-                    <span className="text-amber-600">#3</span>
-                  ) : (
-                    <span className="text-gray-500">#{i + 1}</span>
-                  )}
-                </td>
-                <td className="py-3 px-4 font-semibold text-white">
-                  <button
-                    type="button"
-                    onClick={() => onOpenDriver(row.driver_guid, row.driver_name, row.nation)}
-                    className="hover:text-red-400 hover:underline transition text-left cursor-pointer"
-                    title={t.leaderboard.driverTooltip}
-                  >
-                    {row.driver_name}
-                  </button>
-                  <NationFlag nation={row.nation} />
-                </td>
-                <td className="py-3 px-4 text-gray-300 text-xs">{row.car_model}</td>
-                <td className="py-3 px-4 text-gray-400 text-xs">{row.track_name}</td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">{formatMs(row.sector_1_ms)}</td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">{formatMs(row.sector_2_ms)}</td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">{formatMs(row.sector_3_ms)}</td>
-                <td className="py-3 px-4 text-right">
-                  <LapTimeWithDate ms={row.best_lap_ms} recordedAt={row.last_set} />
-                </td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">
-                  {formatGap(row.best_lap_ms, bestLeaderboardTime)}
-                </td>
-              </tr>
-            ))}
+            {filteredLeaderboard.map((row: any, i: number) => {
+              const bestSec = bestSectorsByTrack.get(String(row.track_name || ''));
+              const isBestS1 = bestSec && Number(row.sector_1_ms) > 0 && Number(row.sector_1_ms) <= bestSec.s1;
+              const isBestS2 = bestSec && Number(row.sector_2_ms) > 0 && Number(row.sector_2_ms) <= bestSec.s2;
+              const isBestS3 = bestSec && Number(row.sector_3_ms) > 0 && Number(row.sector_3_ms) <= bestSec.s3;
+
+              return (
+                <tr key={`${row.driver_guid}-${row.car_model}-${row.track_name}`} className="hover:bg-gray-800/30 transition">
+                  <td className="py-3 px-4 font-mono font-bold">
+                    {i === 0 ? (
+                      <span className="text-amber-400">#1</span>
+                    ) : i === 1 ? (
+                      <span className="text-gray-300">#2</span>
+                    ) : i === 2 ? (
+                      <span className="text-amber-600">#3</span>
+                    ) : (
+                      <span className="text-gray-500">#{i + 1}</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 font-semibold text-white">
+                    <button
+                      type="button"
+                      onClick={() => onOpenDriver(row.driver_guid, row.driver_name, row.nation)}
+                      className="hover:text-red-400 hover:underline transition text-left cursor-pointer"
+                      title={t.leaderboard.driverTooltip}
+                    >
+                      {row.driver_name}
+                    </button>
+                    <NationFlag nation={row.nation} />
+                  </td>
+                  <td className="py-3 px-4 text-gray-300 text-xs">{row.car_model}</td>
+                  <td className="py-3 px-4 text-gray-400 text-xs">{row.track_name}</td>
+                  <td className={`py-3 px-4 text-right font-mono text-xs ${isBestS1 ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                    {formatMs(row.sector_1_ms)}
+                  </td>
+                  <td className={`py-3 px-4 text-right font-mono text-xs ${isBestS2 ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                    {formatMs(row.sector_2_ms)}
+                  </td>
+                  <td className={`py-3 px-4 text-right font-mono text-xs ${isBestS3 ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                    {formatMs(row.sector_3_ms)}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <LapTimeWithDate ms={row.best_lap_ms} recordedAt={row.last_set} />
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono text-xs text-gray-400">
+                    {formatGap(row.best_lap_ms, bestLeaderboardTime)}
+                  </td>
+                </tr>
+              );
+            })}
             {filteredLeaderboard.length === 0 && (
               <tr>
                 <td colSpan={9} className="py-8 text-center text-gray-500">

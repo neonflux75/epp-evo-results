@@ -169,6 +169,17 @@ export async function GET(request: Request) {
         ORDER BY track_name ASC
       `);
 
+      const trackBestSectorsRes = await db.execute(`
+        SELECT
+          track_name,
+          MIN(CASE WHEN sector_1_ms > 0 THEN sector_1_ms ELSE NULL END) as best_s1,
+          MIN(CASE WHEN sector_2_ms > 0 THEN sector_2_ms ELSE NULL END) as best_s2,
+          MIN(CASE WHEN sector_3_ms > 0 THEN sector_3_ms ELSE NULL END) as best_s3
+        FROM laps
+        WHERE is_valid = 1 AND lap_time_ms > 0
+        GROUP BY track_name
+      `);
+
       const driversRes = await db.execute(`
         SELECT
           l.driver_guid,
@@ -190,6 +201,7 @@ export async function GET(request: Request) {
         leaderboard: leaderboardRes.rows,
         sessions: sessionsRes.rows,
         trackRecords: trackRecordsRes.rows,
+        trackBestSectors: trackBestSectorsRes.rows,
         drivers: driversRes.rows
       };
 
@@ -269,6 +281,9 @@ export async function GET(request: Request) {
             r.sector_2_ms,
             r.sector_3_ms,
             r.recorded_at,
+            (SELECT MIN(sector_1_ms) FROM laps WHERE track_name = r.track_name AND is_valid = 1 AND sector_1_ms > 0) as track_best_s1,
+            (SELECT MIN(sector_2_ms) FROM laps WHERE track_name = r.track_name AND is_valid = 1 AND sector_2_ms > 0) as track_best_s2,
+            (SELECT MIN(sector_3_ms) FROM laps WHERE track_name = r.track_name AND is_valid = 1 AND sector_3_ms > 0) as track_best_s3,
             (
               SELECT COUNT(*) + 1
               FROM AllBestOverallTrack o
@@ -351,7 +366,7 @@ export async function GET(request: Request) {
 
         enrichedResults = results.map((r: any) => ({
           ...r,
-          grid_position: gridMap.has(String(r.driver_guid)) ? gridMap.get(String(r.driver_guid)) : null
+          grid_position: gridMap.has(String(r.driver_guid)) ? gridMap.get(String(r.driver_guid)) : (r.grid_position ?? null)
         }));
       }
 

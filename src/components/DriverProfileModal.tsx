@@ -76,45 +76,51 @@ export function DriverProfileModal({ profile, loading, onClose }: DriverProfileM
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/70">
-                  {filteredRecords.map((rec: any, idx: number) => (
-                    <tr key={`${rec.track_name}-${rec.car_model}-${idx}`} className="hover:bg-gray-800/30">
-                      <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-2.5">
-                          <TrackPreview trackName={rec.track_name} className="w-12 h-8" />
-                          <span className="font-semibold text-white text-xs sm:text-sm">{rec.track_name}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-xs text-gray-300">{rec.car_model}</td>
-                      <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap w-px">
-                        <div className="inline-flex items-center justify-center gap-1">
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.overall_rank === 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : rec.overall_rank <= 3 ? 'bg-gray-700/60 text-gray-200' : 'bg-gray-800/80 text-gray-300'}`}>
-                            #{rec.overall_rank}
-                          </span>
-                          <span className="text-[11px] text-gray-500">/ {rec.overall_total}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap w-px">
-                        <div className="inline-flex items-center justify-center gap-1">
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.car_rank === 1 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-gray-800/80 text-gray-300'}`}>
-                            #{rec.car_rank}
-                          </span>
-                          <span className="text-[11px] text-gray-500">/ {rec.car_total}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right font-mono text-[11px] text-gray-400 whitespace-nowrap">
-                        {formatMs(rec.sector_1_ms)}
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right font-mono text-[11px] text-gray-400 whitespace-nowrap">
-                        {formatMs(rec.sector_2_ms)}
-                      </td>
-                      <td className="py-2.5 px-2.5 text-right font-mono text-[11px] text-gray-400 whitespace-nowrap">
-                        {formatMs(rec.sector_3_ms)}
-                      </td>
-                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                        <LapTimeWithDate ms={rec.best_lap_ms} recordedAt={rec.recorded_at} />
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredRecords.map((rec: any, idx: number) => {
+                    const isBestS1 = Number(rec.sector_1_ms) > 0 && Number(rec.sector_1_ms) <= Number(rec.track_best_s1 || 0);
+                    const isBestS2 = Number(rec.sector_2_ms) > 0 && Number(rec.sector_2_ms) <= Number(rec.track_best_s2 || 0);
+                    const isBestS3 = Number(rec.sector_3_ms) > 0 && Number(rec.sector_3_ms) <= Number(rec.track_best_s3 || 0);
+
+                    return (
+                      <tr key={`${rec.track_name}-${rec.car_model}-${idx}`} className="hover:bg-gray-800/30">
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5">
+                            <TrackPreview trackName={rec.track_name} className="w-12 h-8" />
+                            <span className="font-semibold text-white text-xs sm:text-sm">{rec.track_name}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-xs text-gray-300">{rec.car_model}</td>
+                        <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap w-px">
+                          <div className="inline-flex items-center justify-center gap-1">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.overall_rank === 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : rec.overall_rank <= 3 ? 'bg-gray-700/60 text-gray-200' : 'bg-gray-800/80 text-gray-300'}`}>
+                              #{rec.overall_rank}
+                            </span>
+                            <span className="text-[11px] text-gray-500">/ {rec.overall_total}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap w-px">
+                          <div className="inline-flex items-center justify-center gap-1">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.car_rank === 1 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-gray-800/80 text-gray-300'}`}>
+                              #{rec.car_rank}
+                            </span>
+                            <span className="text-[11px] text-gray-500">/ {rec.car_total}</span>
+                          </div>
+                        </td>
+                        <td className={`py-2.5 px-2.5 text-right font-mono text-[11px] whitespace-nowrap ${isBestS1 ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                          {formatMs(rec.sector_1_ms)}
+                        </td>
+                        <td className={`py-2.5 px-2.5 text-right font-mono text-[11px] whitespace-nowrap ${isBestS2 ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                          {formatMs(rec.sector_2_ms)}
+                        </td>
+                        <td className={`py-2.5 px-2.5 text-right font-mono text-[11px] whitespace-nowrap ${isBestS3 ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                          {formatMs(rec.sector_3_ms)}
+                        </td>
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          <LapTimeWithDate ms={rec.best_lap_ms} recordedAt={rec.recorded_at} />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
