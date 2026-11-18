@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Timer, X, Activity } from 'lucide-react';
 import { NationFlag, TrackPreview, formatMs } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
+import { LapTimeWithDate } from './LapTimeWithDate';
 
 interface DriverProfileModalProps {
   profile: any;
@@ -101,8 +102,8 @@ export function DriverProfileModal({ profile, loading, onClose }: DriverProfileM
                       <td className="py-2.5 px-3 text-right font-mono text-[11px] text-gray-400 whitespace-nowrap">
                         {formatMs(rec.sector_1_ms)} • {formatMs(rec.sector_2_ms)} • {formatMs(rec.sector_3_ms)}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400 whitespace-nowrap">
-                        {formatMs(rec.best_lap_ms)}
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        <LapTimeWithDate ms={rec.best_lap_ms} recordedAt={rec.recorded_at} />
                       </td>
                     </tr>
                   ))}
