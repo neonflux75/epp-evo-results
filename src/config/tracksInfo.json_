@@ -1,0 +1,114 @@
+{
+  "brands_hatch": {
+    "lengthKm": 3.908,
+    "turns": 9,
+    "country": "UK",
+    "descIt": "Storico circuito britannico nel Kent, celebre per i suoi saliscendi naturali e curve tecniche ad alta velocità come Paddock Hill Bend.",
+    "descEn": "Historic British circuit in Kent, famous for its natural elevation changes and fast technical corners like Paddock Hill Bend."
+  },
+  "brands_hatch_indy": {
+    "lengthKm": 1.929,
+    "turns": 6,
+    "country": "UK",
+    "descIt": "Configurazione corta e frenetica di Brands Hatch, ideale per gare combattute ruota a ruota.",
+    "descEn": "Short and intense layout of Brands Hatch, ideal for close wheel-to-wheel racing."
+  },
+  "imola": {
+    "lengthKm": 4.909,
+    "turns": 19,
+    "country": "IT",
+    "descIt": "Autodromo Enzo e Dino Ferrari: tracciato tecnico e veloce tra le colline romagnole con staccate impegnative come Tamburello e Rivazza.",
+    "descEn": "Autodromo Enzo e Dino Ferrari: fast, technical Italian circuit featuring iconic chicanes and braking zones like Tamburello and Rivazza."
+  },
+  "laguna_seca": {
+    "lengthKm": 3.602,
+    "turns": 11,
+    "country": "US",
+    "descIt": "Circuito californiano famoso in tutto il mondo per il Cavatappi (Corkscrew), una chicane cieca con un dislivello verticale mozzafiato.",
+    "descEn": "Californian circuit world-famous for the Corkscrew, a blind downhill chicane with a dramatic elevation drop."
+  },
+  "mount_panorama": {
+    "lengthKm": 6.213,
+    "turns": 23,
+    "country": "AU",
+    "descIt": "Il leggendario tracciato di Bathurst in Australia: un mix estremo di lunghi rettilinei e tratti stretti e tortuosi in montagna.",
+    "descEn": "Australia's legendary Bathurst circuit: an extreme blend of long high-speed straights and tight, twisting mountain sections."
+  },
+  "suzuka": {
+    "lengthKm": 5.807,
+    "turns": 18,
+    "country": "JP",
+    "descIt": "Unico tracciato a forma di otto del mondiale, celebre per le Esse, la 130R e la Spoon Curve.",
+    "descEn": "Unique figure-eight Japanese circuit, famous for the S-Curves, 130R, and Spoon Curve."
+  },
+  "suzuka_east": {
+    "lengthKm": 2.243,
+    "turns": 11,
+    "country": "JP",
+    "descIt": "Variante orientale di Suzuka che comprende il rettilineo principale e la sequenza tecnica delle Esse.",
+    "descEn": "Eastern layout of Suzuka featuring the main straight and the technical S-Curve sequence."
+  },
+  "suzuka_west": {
+    "lengthKm": 3.466,
+    "turns": 12,
+    "country": "JP",
+    "descIt": "Variante occidentale di Suzuka caratterizzata dal tornante, dalla Spoon Curve e dalla velocissima 130R.",
+    "descEn": "Western layout of Suzuka featuring the Hairpin, Spoon Curve, and high-speed 130R."
+  },
+  "nurburgring_gp": {
+    "lengthKm": 5.148,
+    "turns": 15,
+    "country": "DE",
+    "descIt": "Circuito Grand Prix moderno immerso nei boschi dell'Eifel, con staccate tecniche e cambi di ritmo impegnativi.",
+    "descEn": "Modern Grand Prix circuit nestled in the Eifel mountains, featuring technical braking zones and demanding rhythm changes."
+  },
+  "nurburgring_nordschleife": {
+    "lengthKm": 20.832,
+    "turns": 73,
+    "country": "DE",
+    "descIt": "L'Inferno Verde: oltre 20 km attraverso la foresta dell'Eifel con più di 70 curve e 300 metri di dislivello.",
+    "descEn": "The Green Hell: over 20 km winding through the Eifel forest with more than 70 corners and 300 meters of elevation change."
+  },
+  "nurburgring_24h": {
+    "lengthKm": 25.378,
+    "turns": 88,
+    "country": "DE",
+    "descIt": "Configurazione endurance che unisce il tracciato Grand Prix e la leggendaria Nordschleife.",
+    "descEn": "Endurance configuration combining the Grand Prix circuit and the legendary Nordschleife."
+  },
+  "spa": {
+    "lengthKm": 7.004,
+    "turns": 19,
+    "country": "BE",
+    "descIt": "Spa-Francorchamps nelle Ardenne: celebre per Eau Rouge-Raidillon, il rettilineo del Kemmel e le curve veloci di Pouhon e Blanchimont.",
+    "descEn": "Spa-Francorchamps in the Ardennes: renowned for Eau Rouge-Raidillon, the Kemmel Straight, and high-speed corners Pouhon and Blanchimont."
+  },
+  "red_bull_ring": {
+    "lengthKm": 4.318,
+    "turns": 10,
+    "country": "AT",
+    "descIt": "Tracciato austriaco rapido e scorrevole tra le montagne della Stiria, caratterizzato da forti staccate in salita e discesa.",
+    "descEn": "Fast and flowing Austrian circuit in the Styrian mountains, defined by heavy uphill and downhill braking zones."
+  },
+  "donington": {
+    "lengthKm": 4.020,
+    "turns": 12,
+    "country": "UK",
+    "descIt": "Circuito inglese scorrevole e veloce, celebre per le Craner Curves in picchiata e le staccate finali.",
+    "descEn": "Fast and flowing British circuit, famous for the plunging Craner Curves and heavy final braking zones."
+  },
+  "cota": {
+    "lengthKm": 5.513,
+    "turns": 20,
+    "country": "US",
+    "descIt": "Circuit of the Americas ad Austin: combina una ripida salita in Curva 1 con sequenze tecniche veloci e lunghi rettilinei.",
+    "descEn": "Circuit of the Americas in Austin: combines a steep uphill Turn 1 with fast technical sequences and long straights."
+  },
+  "fuji": {
+    "lengthKm": 4.563,
+    "turns": 16,
+    "country": "JP",
+    "descIt": "Ai piedi del Monte Fuji, vanta uno dei rettilinei più lunghi del motorsport seguito da un ultimo settore molto tecnico.",
+    "descEn": "At the foot of Mount Fuji, featuring one of motorsport's longest straights followed by a highly technical final sector."
+  }
+}

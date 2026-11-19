@@ -4,33 +4,81 @@ import { Users, X, Clock, MapPin, Route, CornerUpRight } from 'lucide-react';
 import { NationFlag, TrackPreview } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 import { CarHoverPreview } from '@/components/CarHoverPreview';
-import tracksInfo from '@/config/tracksInfo.json';
+import tracksInfoData from '@/config/tracksInfo.json';
 
-interface TrackDetail {
-  lengthKm?: number | null;
-  turns?: number | null;
-  country?: string;
-  descIt?: string;
-  descEn?: string;
+interface TrackDetailInfo {
+  location: { it: string; en: string };
+  lengthKm: string;
+  turns: number;
+  description: { it: string; en: string };
 }
 
-function resolveTrackDetails(trackName?: string): TrackDetail | null {
+const TRACK_ALIASES: Record<string, string> = {
+  monza: 'monza',
+  autodromo: 'monza',
+  imola: 'imola',
+  enzo: 'imola',
+  brands: 'brands_hatch',
+  indy: 'brands_hatch',
+  spa: 'spa',
+  francorchamps: 'spa',
+  suzuka: 'suzuka',
+  laguna: 'laguna_seca',
+  seca: 'laguna_seca',
+  bathurst: 'bathurst',
+  panorama: 'bathurst',
+  mount: 'bathurst',
+  nordschleife: 'nordschleife',
+  '24h': 'nordschleife',
+  nurburgring: 'nurburgring',
+  spielberg: 'red_bull_ring',
+  redbull: 'red_bull_ring',
+  donington: 'donington',
+  cota: 'cota',
+  americas: 'cota',
+  austin: 'cota',
+  fuji: 'fuji',
+  watkins: 'watkins_glen',
+  glen: 'watkins_glen',
+  atlanta: 'road_atlanta',
+  barcelona: 'barcelona',
+  catalunya: 'barcelona',
+  montmelo: 'barcelona',
+  silverstone: 'silverstone',
+  ricard: 'paul_ricard',
+  castellet: 'paul_ricard',
+  misano: 'misano',
+  kyalami: 'kyalami',
+  zandvoort: 'zandvoort',
+};
+
+function resolveTrackInfo(trackName?: string): TrackDetailInfo | null {
   if (!trackName) return null;
-  const norm = trackName
-    .toLowerCase()
+  const db = tracksInfoData as Record<string, TrackDetailInfo>;
+  const raw = trackName.toLowerCase().trim();
+  if (db[raw]) return db[raw];
+
+  const norm = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/^ks_/, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_|_$/g, '');
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 
-  const db = tracksInfo as Record<string, TrackDetail>;
-  if (db[norm]) return db[norm];
+  if (!norm) return null;
+  const under = norm.replace(/\s+/g, '_');
+  if (db[under]) return db[under];
 
-  const entries = Object.entries(db);
-  for (const [key, val] of entries) {
-    if (norm.includes(key) || key.includes(norm)) {
-      return val;
+  for (const key of Object.keys(db)) {
+    if (norm.includes(key.replace(/_/g, ' '))) return db[key];
+  }
+
+  for (const [alias, targetKey] of Object.entries(TRACK_ALIASES)) {
+    if (norm.includes(alias) && db[targetKey]) {
+      return db[targetKey];
     }
   }
+
   return null;
 }
 
@@ -50,11 +98,7 @@ export function ServerModal({
     ? t.liveServers.phases[srv.sessionPhase as keyof typeof t.liveServers.phases] || srv.sessionPhase
     : t.common.offline;
   const count = Math.max(srv.players || 0, srv.playersList?.length || 0);
-  const trackDetails = resolveTrackDetails(srv.track);
-  const description =
-    lang === 'en'
-      ? trackDetails?.descEn || trackDetails?.descIt
-      : trackDetails?.descIt || trackDetails?.descEn;
+  const trackInfo = resolveTrackInfo(srv.track);
 
   return (
     <div
@@ -142,7 +186,7 @@ export function ServerModal({
               )}
             </div>
 
-            <div className="lg:col-span-5 flex flex-col justify-between min-h-[340px] lg:min-h-[460px] px-2">
+            <div className="lg:col-span-5 flex flex-col justify-between min-h-[340px] lg:min-h-[460px] px-2 gap-3">
               <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-gray-400 pb-2 border-b border-gray-800/70">
                 <span className="inline-flex items-center gap-1.5 font-bold">
                   <MapPin className="w-3.5 h-3.5 text-red-500" />
@@ -163,47 +207,30 @@ export function ServerModal({
                 <TrackPreview
                   trackName={srv.track}
                   variant="modal"
-                  className="w-full h-full max-h-[240px] lg:max-h-[280px]"
+                  className="w-full h-full max-h-[230px] lg:max-h-[270px]"
                 />
               </div>
 
-              {trackDetails && (
-                <div className="mt-2 pt-3 border-t border-gray-800/80 space-y-2.5">
-                  <div className="grid grid-cols-2 gap-2">
-                    {trackDetails.lengthKm && (
-                      <div className="bg-[#0e1118] border border-gray-800 rounded-lg px-3 py-2 flex items-center gap-2">
-                        <Route className="w-4 h-4 text-red-400 shrink-0" />
-                        <div>
-                          <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-                            {lang === 'en' ? 'Length' : 'Lunghezza'}
-                          </div>
-                          <div className="text-xs font-mono font-bold text-white">
-                            {trackDetails.lengthKm.toFixed(3)} km
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {trackDetails.turns && (
-                      <div className="bg-[#0e1118] border border-gray-800 rounded-lg px-3 py-2 flex items-center gap-2">
-                        <CornerUpRight className="w-4 h-4 text-amber-400 shrink-0" />
-                        <div>
-                          <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-                            {lang === 'en' ? 'Turns' : 'Curve'}
-                          </div>
-                          <div className="text-xs font-mono font-bold text-white">
-                            {trackDetails.turns}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+              {trackInfo && (
+                <div className="bg-[#0e1118]/90 border border-gray-800/90 rounded-lg p-3 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="text-gray-400 font-medium truncate">
+                      {lang === 'en' ? trackInfo.location.en : trackInfo.location.it}
+                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-800/90 border border-gray-700/80 text-gray-200 font-mono font-bold">
+                        <Route className="w-3 h-3 text-red-400" />
+                        {trackInfo.lengthKm}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-800/90 border border-gray-700/80 text-gray-200 font-mono font-bold">
+                        <CornerUpRight className="w-3 h-3 text-amber-400" />
+                        {trackInfo.turns} {lang === 'en' ? 'turns' : 'curve'}
+                      </span>
+                    </div>
                   </div>
-
-                  {description && (
-                    <p className="text-xs leading-relaxed text-gray-400 bg-[#0e1118]/70 border border-gray-800/70 rounded-lg p-2.5">
-                      {description}
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    {lang === 'en' ? trackInfo.description.en : trackInfo.description.it}
+                  </p>
                 </div>
               )}
             </div>
