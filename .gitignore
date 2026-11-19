@@ -47,3 +47,10 @@ progetto.txt
 *.tsx_
 *.js_
 *.bak
+
+# Strumenti locali e configurazioni server
+/tools/
+*.ini
+.env
+.env*.local
+piste_trovate.txt
