@@ -24,3 +24,12 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+select,
+option {
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  background-color: #0b0d11;
+  color: #f3f4f6;
+}
