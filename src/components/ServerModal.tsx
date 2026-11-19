@@ -3,6 +3,7 @@ import React from 'react';
 import { Users, Car, X, Clock, MapPin } from 'lucide-react';
 import { NationFlag, TrackPreview } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
+import { CarHoverPreview } from '@/components/CarHoverPreview';
 
 export function ServerModal({
   srv,
@@ -69,7 +70,7 @@ export function ServerModal({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
             <div className="lg:col-span-7 flex flex-col">
               {srv.playersList?.length > 0 ? (
-                <div className="border border-gray-800 rounded-lg overflow-hidden flex-1">
+                <div className="border border-gray-800 rounded-lg overflow-visible flex-1">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-[#0e1118] text-[11px] uppercase text-gray-400">
                       <tr>
@@ -91,11 +92,9 @@ export function ServerModal({
                             </span>
                           </td>
                           <td className="py-1.5 px-3 text-xs text-gray-300">
-                            <span className="inline-flex items-center gap-1.5">
-                              <Car className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                              {p.car}
-                            </span>
-                          </td>
+							<CarHoverPreview carName={p.car} />
+						  </td>
+
                         </tr>
                       ))}
                     </tbody>
