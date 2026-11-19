@@ -4,7 +4,15 @@ import { Users, Car, X, Clock, MapPin } from 'lucide-react';
 import { NationFlag, TrackPreview } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 
-export function ServerModal({ srv, timerStr, onClose }: { srv: any; timerStr: string | null; onClose: () => void }) {
+export function ServerModal({
+  srv,
+  timerStr,
+  onClose,
+}: {
+  srv: any;
+  timerStr: string | null;
+  onClose: () => void;
+}) {
   const { t } = useLanguage();
   if (!srv) return null;
 
@@ -19,7 +27,7 @@ export function ServerModal({ srv, timerStr, onClose }: { srv: any; timerStr: st
       onClick={onClose}
     >
       <div
-        className="bg-[#131720] border border-gray-700 rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+        className="bg-[#131720] border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b border-gray-800 flex items-center justify-between gap-3">
@@ -39,9 +47,10 @@ export function ServerModal({ srv, timerStr, onClose }: { srv: any; timerStr: st
                 </span>
               )}
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-white mt-0.5">{srv.name}</h3>
+            <h3 className="text-base font-bold text-white mt-1">{srv.name}</h3>
             <p className="text-xs text-gray-400">
-              {t.common.track}: <strong className="text-gray-200">{srv.track || t.common.trackFallback}</strong> •{' '}
+              {t.common.track}:{' '}
+              <strong className="text-gray-200">{srv.track || t.common.trackFallback}</strong> •{' '}
               {t.liveServers.connectedDrivers}:{' '}
               <strong className="text-amber-400">
                 {count}/{srv.maxPlayers}
@@ -56,56 +65,74 @@ export function ServerModal({ srv, timerStr, onClose }: { srv: any; timerStr: st
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
-          <div className="md:col-span-7 flex flex-col">
-            {srv.playersList?.length > 0 ? (
-              <div className="border border-gray-800 rounded-lg overflow-hidden flex-1">
-                <table className="w-full text-left text-xs sm:text-sm">
-                  <thead className="bg-[#0e1118] text-[11px] uppercase text-gray-400">
-                    <tr>
-                      <th className="py-2 px-3 w-14">{t.liveServers.raceNumber}</th>
-                      <th className="py-2 px-3">{t.common.driver}</th>
-                      <th className="py-2 px-3">{t.common.vehicle}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-800/80">
-                    {srv.playersList.map((p: any) => (
-                      <tr key={p.steamId} className="hover:bg-gray-800/30">
-                        <td className="py-1.5 px-3 font-mono font-bold text-amber-400">#{p.number}</td>
-                        <td className="py-1.5 px-3 font-semibold text-white">
-                          <span className="inline-flex items-center">
-                            {p.name}
-                            <NationFlag nation={p.nation} />
-                          </span>
-                        </td>
-                        <td className="py-1.5 px-3 text-xs text-gray-300 flex items-center gap-1.5">
-                          <Car className="w-3.5 h-3.5 text-red-400 shrink-0" /> {p.car}
-                        </td>
+        <div className="p-4 overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+            <div className="lg:col-span-7 flex flex-col">
+              {srv.playersList?.length > 0 ? (
+                <div className="border border-gray-800 rounded-lg overflow-hidden flex-1">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-[#0e1118] text-[11px] uppercase text-gray-400">
+                      <tr>
+                        <th className="py-2 px-3 w-14">{t.liveServers.raceNumber}</th>
+                        <th className="py-2 px-3">{t.common.driver}</th>
+                        <th className="py-2 px-3">{t.common.vehicle}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="border border-gray-800/80 rounded-lg bg-[#0e1118]/50 flex-1 min-h-[280px] flex flex-col items-center justify-center text-center text-gray-400 p-6 space-y-1">
-                <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                <p className="font-semibold text-gray-300">{t.liveServers.noDriversTitle}</p>
-                <p className="text-xs text-gray-500">{t.liveServers.noDriversSub}</p>
-              </div>
-            )}
-          </div>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {srv.playersList.map((p: any) => (
+                        <tr key={p.steamId} className="hover:bg-gray-800/30">
+                          <td className="py-1.5 px-3 font-mono font-bold text-amber-400 text-xs">
+                            #{p.number}
+                          </td>
+                          <td className="py-1.5 px-3 font-semibold text-white text-xs sm:text-sm">
+                            <span className="inline-flex items-center">
+                              {p.name}
+                              <NationFlag nation={p.nation} />
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-3 text-xs text-gray-300">
+                            <span className="inline-flex items-center gap-1.5">
+                              <Car className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                              {p.car}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="border border-gray-800 rounded-lg flex-1 min-h-[260px] flex flex-col items-center justify-center p-6 text-center text-gray-400 space-y-1">
+                  <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                  <p className="font-semibold text-gray-300">{t.liveServers.noDriversTitle}</p>
+                  <p className="text-xs text-gray-500">{t.liveServers.noDriversSub}</p>
+                </div>
+              )}
+            </div>
 
-          <div className="md:col-span-5 flex flex-col">
-            <div className="bg-[#0e1118] border border-gray-800 rounded-xl p-4 flex flex-col justify-between h-full min-h-[360px] md:min-h-[520px]">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-                <MapPin className="w-3.5 h-3.5 text-red-500" />
-                <span>{srv.track || t.common.trackFallback}</span>
+            <div className="lg:col-span-5 flex flex-col justify-between min-h-[360px] lg:min-h-[540px] px-2">
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-gray-400 pb-2 border-b border-gray-800/70">
+                <span className="inline-flex items-center gap-1.5 font-bold">
+                  <MapPin className="w-3.5 h-3.5 text-red-500" />
+                  {t.common.track}
+                </span>
+                <span className="text-gray-300 font-semibold truncate max-w-[200px]">
+                  {srv.track || t.common.trackFallback}
+                </span>
               </div>
-              <div className="flex-1 flex items-center justify-center overflow-hidden rounded-lg bg-[#090b10] border border-gray-800/70 p-3">
-                <TrackPreview
-                  trackName={srv.track}
-                  className="w-full h-full min-h-[300px] md:min-h-[440px] object-contain"
-                />
+              <div className="flex-1 flex items-center justify-center py-4 overflow-hidden">
+                <div
+                  className="w-full h-full flex items-center justify-center"
+                  style={{
+                    filter:
+                      'drop-shadow(0 0 6px rgba(239, 68, 68, 0.85)) drop-shadow(0 0 16px rgba(220, 38, 38, 0.45))',
+                  }}
+                >
+                  <TrackPreview
+                    trackName={srv.track}
+                    className="!bg-transparent !border-0 !shadow-none w-full h-full min-h-[320px] lg:min-h-[480px] scale-110"
+                  />
+                </div>
               </div>
             </div>
           </div>

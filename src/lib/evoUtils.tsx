@@ -48,21 +48,82 @@ export function NationFlag({ nation }: { nation?: string }) {
   );
 }
 
-export function TrackPreview({ trackName, className = 'w-16 h-10' }: { trackName?: string; className?: string }) {
-  const [err, setErr] = useState(false);
-  useEffect(() => { setErr(false); }, [trackName]);
-  const slug = (trackName || '').split('(')[0].trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-  if (!slug || err) {
+export function TrackPreview({
+  trackName,
+  className = 'w-16 h-10',
+  transparent = false,
+}: {
+  trackName?: string;
+  className?: string;
+  transparent?: boolean;
+}) {
+  const [candidateIdx, setCandidateIdx] = useState(0);
+  useEffect(() => {
+    setCandidateIdx(0);
+  }, [trackName]);
+
+  const raw = (trackName || '').trim();
+  const basePart = raw
+    .split('(')[0]
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+  const layoutMatch = raw.match(/\(([^)]+)\)/);
+  const layoutPart = layoutMatch
+    ? layoutMatch[1].trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+    : '';
+
+  const candidates = Array.from(
+    new Set(
+      [
+        layoutPart ? `${basePart}_${layoutPart}` : '',
+        layoutPart && layoutPart !== 'gp' && layoutPart !== 'grand_prix' ? layoutPart : '',
+        layoutPart.includes('nordschleife') ? 'nurburgring_nordschleife' : '',
+        layoutPart.includes('nordschleife') ? 'nordschleife' : '',
+        layoutPart.includes('24h') ? 'nurburgring_24h' : '',
+        basePart,
+      ].filter(Boolean)
+    )
+  );
+
+  const currentSlug = candidates[candidateIdx];
+
+  if (!currentSlug) {
     return (
-      <div className={`${className} rounded bg-[#0b0d11] border border-gray-800 flex flex-col items-center justify-center text-gray-600 shrink-0`} title={trackName || 'Layout non disponibile'}>
+      <div
+        className={`${className} rounded ${
+          transparent ? 'bg-transparent' : 'bg-[#0b0d11] border border-gray-800'
+        } flex flex-col items-center justify-center text-gray-600 shrink-0`}
+        title={trackName || 'Layout non disponibile'}
+      >
         <Flag className="w-3.5 h-3.5 opacity-50" />
         <span className="text-[8px] uppercase tracking-tighter mt-0.5">Track</span>
       </div>
     );
   }
+
+  if (transparent) {
+    return (
+      <div className={`${className} overflow-visible shrink-0 flex items-center justify-center`}>
+        <img
+          src={`/assets/tracks/${currentSlug}.png`}
+          alt={trackName || 'Circuito'}
+          onError={() => setCandidateIdx((i) => i + 1)}
+          className="w-full h-full object-contain mix-blend-screen contrast-150 brightness-110 select-none"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={`${className} rounded bg-[#0b0d11] border border-gray-800/90 overflow-hidden shrink-0 flex items-center justify-center p-1`}>
-      <img src={`/assets/tracks/${slug}.png`} alt={trackName || 'Circuito'} onError={() => setErr(true)} className="w-full h-full object-contain" />
+      <img
+        src={`/assets/tracks/${currentSlug}.png`}
+        alt={trackName || 'Circuito'}
+        onError={() => setCandidateIdx((i) => i + 1)}
+        className="w-full h-full object-contain"
+      />
     </div>
   );
 }
