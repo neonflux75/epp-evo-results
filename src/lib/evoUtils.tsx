@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Flag } from 'lucide-react';
+import tracksMap from '@/config/tracksMap.json';
 
 export const ISO3_TO_ISO2: Record<string, string> = {
   AFG:'af',ALB:'al',DZA:'dz',AND:'ad',AGO:'ao',ARG:'ar',ARM:'am',AUS:'au',AUT:'at',AZE:'az',BHS:'bs',BHR:'bh',BGD:'bd',BRB:'bb',BLR:'by',BEL:'be',
@@ -51,50 +52,40 @@ export function NationFlag({ nation }: { nation?: string }) {
 export function TrackPreview({
   trackName,
   className = 'w-16 h-10',
-  transparent = false,
+  variant = 'card',
 }: {
   trackName?: string;
   className?: string;
-  transparent?: boolean;
+  variant?: 'card' | 'modal';
 }) {
-  const [candidateIdx, setCandidateIdx] = useState(0);
+  const [err, setErr] = useState(false);
   useEffect(() => {
-    setCandidateIdx(0);
+    setErr(false);
   }, [trackName]);
 
-  const raw = (trackName || '').trim();
-  const basePart = raw
+  const rawLower = (trackName || '').toLowerCase();
+  const fullSlug = rawLower.replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const baseSlug = (trackName || '')
     .split('(')[0]
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_|_$/g, '');
-  const layoutMatch = raw.match(/\(([^)]+)\)/);
-  const layoutPart = layoutMatch
-    ? layoutMatch[1].trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-    : '';
 
-  const candidates = Array.from(
-    new Set(
-      [
-        layoutPart ? `${basePart}_${layoutPart}` : '',
-        layoutPart && layoutPart !== 'gp' && layoutPart !== 'grand_prix' ? layoutPart : '',
-        layoutPart.includes('nordschleife') ? 'nurburgring_nordschleife' : '',
-        layoutPart.includes('nordschleife') ? 'nordschleife' : '',
-        layoutPart.includes('24h') ? 'nurburgring_24h' : '',
-        basePart,
-      ].filter(Boolean)
-    )
-  );
+  const mapRecord = tracksMap as Record<string, string>;
+  const matchedFile =
+    (rawLower.includes('nordschleife') && mapRecord['nordschleife']) ||
+    (rawLower.includes('24h') && mapRecord['nurburgring_24h']) ||
+    (rawLower.includes('indy') && mapRecord['brands_hatch_indy']) ||
+    mapRecord[fullSlug] ||
+    mapRecord[baseSlug] ||
+    Object.entries(mapRecord).find(([k]) => baseSlug && k.includes(baseSlug))?.[1] ||
+    '';
 
-  const currentSlug = candidates[candidateIdx];
-
-  if (!currentSlug) {
+  if (!matchedFile || err) {
     return (
       <div
-        className={`${className} rounded ${
-          transparent ? 'bg-transparent' : 'bg-[#0b0d11] border border-gray-800'
-        } flex flex-col items-center justify-center text-gray-600 shrink-0`}
+        className={`${className} rounded bg-[#0b0d11] border border-gray-800 flex flex-col items-center justify-center text-gray-600 shrink-0`}
         title={trackName || 'Layout non disponibile'}
       >
         <Flag className="w-3.5 h-3.5 opacity-50" />
@@ -103,25 +94,27 @@ export function TrackPreview({
     );
   }
 
-  if (transparent) {
+  if (variant === 'modal') {
     return (
-      <div className={`${className} overflow-visible shrink-0 flex items-center justify-center`}>
+      <div className={`${className} flex items-center justify-center overflow-hidden`}>
         <img
-          src={`/assets/tracks/${currentSlug}.png`}
+          src={`/assets/tracks/${matchedFile}`}
           alt={trackName || 'Circuito'}
-          onError={() => setCandidateIdx((i) => i + 1)}
-          className="w-full h-full object-contain mix-blend-screen contrast-150 brightness-110 select-none"
+          onError={() => setErr(true)}
+          className="w-full h-full object-contain mix-blend-lighten contrast-125"
         />
       </div>
     );
   }
 
   return (
-    <div className={`${className} rounded bg-[#0b0d11] border border-gray-800/90 overflow-hidden shrink-0 flex items-center justify-center p-1`}>
+    <div
+      className={`${className} rounded bg-[#0b0d11] border border-gray-800/90 overflow-hidden shrink-0 flex items-center justify-center p-1`}
+    >
       <img
-        src={`/assets/tracks/${currentSlug}.png`}
+        src={`/assets/tracks/${matchedFile}`}
         alt={trackName || 'Circuito'}
-        onError={() => setCandidateIdx((i) => i + 1)}
+        onError={() => setErr(true)}
         className="w-full h-full object-contain"
       />
     </div>

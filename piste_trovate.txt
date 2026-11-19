@@ -1,0 +1,105 @@
+=== IMMAGINI TROVATE IN public/assets/tracks (79) ===
+- autodromo_di_vallelunga.png
+- autodromo_internazionale_enzo_e_dino_ferrari.png
+- autodromo_monza.png
+- autodromo_nazionale_monza.png
+- barcelona.png
+- brands_hatch_gp.png
+- brands_hatch_indy.png
+- brands_hatch.png
+- catalunya.png
+- circuit_de_spa_francorchamps.png
+- circuit_of_the_americas.png
+- circuit_paul_ricard.png
+- cota.png
+- donington_park.png
+- donington.png
+- fuji_speedway.png
+- fuji.png
+- hungaroring.png
+- imola.png
+- ks_barcelona.png
+- ks_brands_hatch_indy.png
+- ks_brands_hatch.png
+- ks_cota.png
+- ks_donington_park.png
+- ks_fuji.png
+- ks_hungaroring.png
+- ks_imola.png
+- ks_kyalami.png
+- ks_laguna_seca.png
+- ks_misano.png
+- ks_monza.png
+- ks_mugello.png
+- ks_nordschleife.png
+- ks_nurburgring_gp.png
+- ks_nurburgring.png
+- ks_oulton_park.png
+- ks_paul_ricard.png
+- ks_red_bull_ring.png
+- ks_road_atlanta.png
+- ks_sebring.png
+- ks_silverstone.png
+- ks_spa.png
+- ks_suzuka.png
+- ks_vallelunga.png
+- ks_watkins_glen.png
+- ks_zandvoort.png
+- kyalami_grand_prix_circuit.png
+- kyalami.png
+- laguna_seca.png
+- michelin_raceway_road_atlanta.png
+- misano_world_circuit.png
+- misano.png
+- monza_gp.png
+- monza.png
+- mugello.png
+- nordschleife.png
+- nurburgring_gp.png
+- nurburgring_nordschleife.png
+- nurburgring.png
+- oulton_park.png
+- paul_ricard.png
+- red_bull_ring.png
+- redbull_ring.png
+- road_atlanta.png
+- sebring_international_raceway.png
+- sebring.png
+- silverstone.png
+- spa_francorchamps.png
+- spa-francorchamps.png
+- spa.png
+- spielberg.png
+- suzuka_circuit.png
+- suzuka_gp.png
+- suzuka.png
+- vallelunga.png
+- watkins_glen_international.png
+- watkins_glen.png
+- weathertech_raceway_laguna_seca.png
+- zandvoort.png
+
+=== ASSOCIAZIONI AUTOMATICHE GENERATE ===
+nordschleife -> ks_nordschleife.png
+nurburgring_nordschleife -> ks_nordschleife.png
+nurburgring_24h -> ks_nordschleife.png
+nurburgring -> ks_nurburgring_gp.png
+brands_hatch_indy -> brands_hatch_indy.png
+brands_hatch -> brands_hatch_gp.png
+imola -> imola.png
+monza -> autodromo_monza.png
+spa -> circuit_de_spa_francorchamps.png
+laguna_seca -> ks_laguna_seca.png
+suzuka -> ks_suzuka.png
+fuji -> fuji_speedway.png
+donington -> donington_park.png
+watkins_glen -> ks_watkins_glen.png
+red_bull_ring -> ks_red_bull_ring.png
+cota -> cota.png
+silverstone -> ks_silverstone.png
+barcelona -> barcelona.png
+mugello -> ks_mugello.png
+vallelunga -> autodromo_di_vallelunga.png
+misano -> ks_misano.png
+zandvoort -> ks_zandvoort.png
+kyalami -> ks_kyalami.png
