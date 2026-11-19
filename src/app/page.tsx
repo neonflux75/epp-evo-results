@@ -49,17 +49,23 @@ export default function EvoResultsDashboard() {
     return id;
   };
 
-  const fetchDashboard = async (track = selectedTrack) => {
+  const fetchDashboard = async (track = selectedTrack, car = selectedCar) => {
     try {
       const vId = getViewerId();
-      const res = await fetch(`/api/dashboard?viewerId=${encodeURIComponent(vId)}${track ? `&track=${encodeURIComponent(track)}` : ''}`);
+      const params = new URLSearchParams({ viewerId: vId });
+      if (track) params.set('track', track);
+      if (car && car !== 'ALL') params.set('car', car);
+
+      const res = await fetch(`/api/dashboard?${params.toString()}`);
       const json = await res.json();
       if (json.tracks?.length > 0) {
         const exists = json.tracks.some((t: any) => t.track_name === track);
         if (!track || !exists) {
           const rnd = json.tracks[Math.floor(Math.random() * json.tracks.length)].track_name;
           setSelectedTrack(rnd);
+          setSelectedCar('ALL');
           setCookie('evo_top100_track', rnd);
+          setCookie('evo_top100_car', 'ALL');
           const r2 = await fetch(`/api/dashboard?viewerId=${encodeURIComponent(vId)}&track=${encodeURIComponent(rnd)}`);
           setData(await r2.json());
           return;
@@ -71,10 +77,10 @@ export default function EvoResultsDashboard() {
 
   useEffect(() => {
     if (!cookiesLoaded) return;
-    fetchDashboard(selectedTrack);
-    const iv = setInterval(() => fetchDashboard(selectedTrack), 30000);
+    fetchDashboard(selectedTrack, selectedCar);
+    const iv = setInterval(() => fetchDashboard(selectedTrack, selectedCar), 30000);
     return () => clearInterval(iv);
-  }, [selectedTrack, cookiesLoaded]);
+  }, [selectedTrack, selectedCar, cookiesLoaded]);
 
   const openSessionDetails = async (id: number) => {
     setLoadingSession(true);
@@ -162,7 +168,9 @@ export default function EvoResultsDashboard() {
         {activeTab === 'leaderboard' && (
           <LeaderboardSection
             tracks={data.tracks}
+            availableCars={data.availableCars}
             leaderboard={data.leaderboard}
+            trackBestSectors={data.trackBestSectors}
             selectedTrack={selectedTrack}
             selectedCar={selectedCar}
             onTrackChange={(v) => { setSelectedTrack(v); setCookie('evo_top100_track', v); setSelectedCar('ALL'); setCookie('evo_top100_car', 'ALL'); }}

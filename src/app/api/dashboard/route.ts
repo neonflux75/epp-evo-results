@@ -52,13 +52,15 @@ export async function GET(request: Request) {
     await ensureSchema();
     const { searchParams } = new URL(request.url);
     const trackFilter = searchParams.get('track') || 'ALL';
+    const carFilter = searchParams.get('car') || 'ALL';
     const sessionId = searchParams.get('sessionId');
     const driverGuid = searchParams.get('driverGuid');
     const viewerId = searchParams.get('viewerId');
 
     if (!sessionId && !driverGuid) {
       const onlineViewers = await trackAndCountViewers(viewerId);
-      const cached = dashboardCache.get(trackFilter);
+      const cacheKey = `${trackFilter}::${carFilter}`;
+      const cached = dashboardCache.get(cacheKey);
       if (cached && Date.now() < cached.expiresAt) {
         return NextResponse.json({
           ...cached.data,
@@ -85,8 +87,31 @@ export async function GET(request: Request) {
 
       const tracksRes = await db.execute('SELECT DISTINCT track_name FROM laps WHERE is_valid = 1 ORDER BY track_name ASC');
 
-      const filterClause = trackFilter !== 'ALL' ? 'AND l.track_name = ?' : '';
-      const args = trackFilter !== 'ALL' ? [trackFilter] : [];
+      const trackClause = trackFilter !== 'ALL' ? 'AND l.track_name = ?' : '';
+      const trackArgs = trackFilter !== 'ALL' ? [trackFilter] : [];
+
+      const carsRes = await db.execute({
+        sql: `
+          SELECT DISTINCT l.car_model
+          FROM laps l
+          WHERE l.is_valid = 1 AND l.lap_time_ms > 0 AND l.car_model IS NOT NULL AND TRIM(l.car_model) != '' ${trackClause}
+          ORDER BY l.car_model ASC
+        `,
+        args: trackArgs
+      });
+      const availableCars = (carsRes.rows as any[]).map((r) => String(r.car_model));
+
+      const conditions: string[] = ['l.is_valid = 1', 'l.lap_time_ms > 0'];
+      const args: any[] = [];
+      if (trackFilter !== 'ALL') {
+        conditions.push('l.track_name = ?');
+        args.push(trackFilter);
+      }
+      if (carFilter !== 'ALL') {
+        conditions.push('l.car_model = ?');
+        args.push(carFilter);
+      }
+      const whereClause = conditions.join(' AND ');
 
       const leaderboardRes = await db.execute({
         sql: `
@@ -108,7 +133,7 @@ export async function GET(request: Request) {
                 ORDER BY l.lap_time_ms ASC, l.id ASC
               ) as rn
             FROM laps l
-            WHERE l.is_valid = 1 AND l.lap_time_ms > 0 ${filterClause}
+            WHERE ${whereClause}
           )
           SELECT
             driver_guid,
@@ -136,7 +161,7 @@ export async function GET(request: Request) {
           (SELECT car_model FROM session_results WHERE session_id = s.id AND position = 1 LIMIT 1) as winner_car
         FROM sessions s
         ORDER BY s.played_at DESC, s.id DESC
-        LIMIT 40
+        LIMIT 250
       `);
 
       const trackRecordsRes = await db.execute(`
@@ -198,6 +223,7 @@ export async function GET(request: Request) {
       const basePayload = {
         liveServers,
         tracks: tracksRes.rows,
+        availableCars,
         leaderboard: leaderboardRes.rows,
         sessions: sessionsRes.rows,
         trackRecords: trackRecordsRes.rows,
@@ -205,7 +231,7 @@ export async function GET(request: Request) {
         drivers: driversRes.rows
       };
 
-      dashboardCache.set(trackFilter, {
+      dashboardCache.set(cacheKey, {
         data: basePayload,
         expiresAt: Date.now() + CACHE_TTL_MS
       });

@@ -8,6 +8,7 @@ import { CarHoverPreview } from './CarHoverPreview';
 
 interface LeaderboardSectionProps {
   tracks: any[];
+  availableCars?: string[];
   leaderboard: any[];
   trackBestSectors?: any[];
   selectedTrack: string;
@@ -19,6 +20,7 @@ interface LeaderboardSectionProps {
 
 export function LeaderboardSection({
   tracks,
+  availableCars: propAvailableCars,
   leaderboard,
   trackBestSectors = [],
   selectedTrack,
@@ -29,9 +31,14 @@ export function LeaderboardSection({
 }: LeaderboardSectionProps) {
   const { t } = useLanguage();
 
-  const availableCars = Array.from(
-    new Set((leaderboard || []).map((r: any) => r.car_model).filter(Boolean))
-  ).sort() as string[];
+  const availableCars = useMemo(() => {
+    if (propAvailableCars && propAvailableCars.length > 0) {
+      return propAvailableCars;
+    }
+    return Array.from(
+      new Set((leaderboard || []).map((r: any) => r.car_model).filter(Boolean))
+    ).sort() as string[];
+  }, [propAvailableCars, leaderboard]);
 
   const effectiveSelectedCar =
     selectedCar === 'ALL' || availableCars.includes(selectedCar) ? selectedCar : 'ALL';
