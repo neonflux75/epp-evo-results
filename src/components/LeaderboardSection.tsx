@@ -4,6 +4,7 @@ import { formatMs, formatGap } from '@/lib/evoUtils';
 import { NationFlag } from './SharedUI';
 import { useLanguage } from '@/context/LanguageContext';
 import { LapTimeWithDate } from './LapTimeWithDate';
+import { CarHoverPreview } from './CarHoverPreview';
 
 interface LeaderboardSectionProps {
   tracks: any[];
@@ -152,7 +153,9 @@ export function LeaderboardSection({
                     </button>
                     <NationFlag nation={row.nation} />
                   </td>
-                  <td className="py-3 px-4 text-gray-300 text-xs">{row.car_model}</td>
+                  <td className="py-3 px-4 text-gray-300 text-xs">
+                    <CarHoverPreview carName={row.car_model} showIcon={false} />
+                  </td>
                   <td className="py-3 px-4 text-gray-400 text-xs">{row.track_name}</td>
                   <td className={`py-3 px-4 text-right font-mono text-xs ${isBestS1 ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
                     {formatMs(row.sector_1_ms)}

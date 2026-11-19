@@ -4,6 +4,7 @@ import { Timer, X, Activity } from 'lucide-react';
 import { NationFlag, TrackPreview, formatMs } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 import { LapTimeWithDate } from './LapTimeWithDate';
+import { CarHoverPreview } from './CarHoverPreview';
 
 interface DriverProfileModalProps {
   profile: any;
@@ -89,7 +90,9 @@ export function DriverProfileModal({ profile, loading, onClose }: DriverProfileM
                             <span className="font-semibold text-white text-xs sm:text-sm">{rec.track_name}</span>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-xs text-gray-300">{rec.car_model}</td>
+                        <td className="py-2.5 px-3 text-xs text-gray-300">
+                          <CarHoverPreview carName={rec.car_model} showIcon={false} />
+                        </td>
                         <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap w-px">
                           <div className="inline-flex items-center justify-center gap-1">
                             <span className={`px-2 py-0.5 rounded text-xs font-bold ${rec.overall_rank === 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : rec.overall_rank <= 3 ? 'bg-gray-700/60 text-gray-200' : 'bg-gray-800/80 text-gray-300'}`}>

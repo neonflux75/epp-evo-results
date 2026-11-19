@@ -4,6 +4,7 @@ import { ChevronRight, ChevronDown, AlertTriangle } from 'lucide-react';
 import { NationFlag, formatMs } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 import { DriverLapsSubtable } from './DriverLapsSubtable';
+import { CarHoverPreview } from './CarHoverPreview';
 
 interface SessionResultRowProps {
   r: any;
@@ -99,7 +100,9 @@ export function SessionResultRow({
           </div>
         </td>
 
-        <td className="py-2.5 px-3 text-xs text-gray-300">{r.car_model}</td>
+        <td className="py-2.5 px-3 text-xs text-gray-300" onClick={(e) => e.stopPropagation()}>
+          <CarHoverPreview carName={r.car_model} showIcon={false} />
+        </td>
         <td className="py-2.5 px-3 text-center font-mono text-gray-300">{r.laps_completed}</td>
         <td className="py-2.5 px-3 text-right font-mono text-emerald-400">{formatMs(r.best_lap_ms)}</td>
         <td className="py-2.5 px-3 text-right font-mono text-gray-400">

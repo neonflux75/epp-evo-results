@@ -4,6 +4,7 @@ import { Calendar, ChevronRight } from 'lucide-react';
 import { TrackPreview, formatLocalDateTime } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 import { SessionDetailsModal } from './SessionDetailsModal';
+import { CarHoverPreview } from './CarHoverPreview';
 
 interface SessionsSectionProps {
   tracks?: any[];
@@ -190,7 +191,9 @@ export function SessionsSection({
                       </div>
                       <div className="text-sm font-bold text-white">{s.winner_name}</div>
                       {s.winner_car && (
-                        <div className="text-[11px] text-gray-400">{s.winner_car}</div>
+                        <div className="text-[11px] text-gray-400" onClick={(e) => e.stopPropagation()}>
+                          <CarHoverPreview carName={s.winner_car} showIcon={false} />
+                        </div>
                       )}
                     </div>
                   )}
