@@ -2,12 +2,7 @@
   "autodromo_di_vallelunga": "autodromo_di_vallelunga.png",
   "autodromo_internazionale_enzo_e_dino_ferrari": "autodromo_internazionale_enzo_e_dino_ferrari.png",
   "autodromo_monza": "autodromo_monza.png",
-  "autodromo_nazionale_monza": "autodromo_nazionale_monza.png",
   "barcelona": "barcelona.png",
-  "brands_hatch_gp": "brands_hatch_gp.png",
-  "brands_hatch_indy": "brands_hatch_indy.png",
-  "brands_hatch": "brands_hatch_gp.png",
-  "catalunya": "catalunya.png",
   "circuit_de_spa_francorchamps": "circuit_de_spa_francorchamps.png",
   "circuit_of_the_americas": "circuit_of_the_americas.png",
   "circuit_paul_ricard": "circuit_paul_ricard.png",
@@ -78,5 +73,7 @@
   "watkins_glen": "ks_watkins_glen.png",
   "weathertech_raceway_laguna_seca": "weathertech_raceway_laguna_seca.png",
   "zandvoort": "ks_zandvoort.png",
-  "nurburgring_24h": "ks_nordschleife.png"
+  "nurburgring_24h": "ks_nordschleife.png",
+  "brands_hatch_indy": "ks_brands_hatch_indy.png",
+  "brands_hatch": "ks_brands_hatch_indy.png"
 }

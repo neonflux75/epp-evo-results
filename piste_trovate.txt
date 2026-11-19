@@ -1,13 +1,8 @@
-=== IMMAGINI TROVATE IN public/assets/tracks (79) ===
+=== IMMAGINI TROVATE IN public/assets/tracks (74) ===
 - autodromo_di_vallelunga.png
 - autodromo_internazionale_enzo_e_dino_ferrari.png
 - autodromo_monza.png
-- autodromo_nazionale_monza.png
 - barcelona.png
-- brands_hatch_gp.png
-- brands_hatch_indy.png
-- brands_hatch.png
-- catalunya.png
 - circuit_de_spa_francorchamps.png
 - circuit_of_the_americas.png
 - circuit_paul_ricard.png
@@ -84,8 +79,8 @@ nordschleife -> ks_nordschleife.png
 nurburgring_nordschleife -> ks_nordschleife.png
 nurburgring_24h -> ks_nordschleife.png
 nurburgring -> ks_nurburgring_gp.png
-brands_hatch_indy -> brands_hatch_indy.png
-brands_hatch -> brands_hatch_gp.png
+brands_hatch_indy -> ks_brands_hatch_indy.png
+brands_hatch -> ks_brands_hatch_indy.png
 imola -> imola.png
 monza -> autodromo_monza.png
 spa -> circuit_de_spa_francorchamps.png
