@@ -69,14 +69,33 @@ export function TrackPreview({
     .split('(')[0]
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_|_$/g, '');
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
   const mapRecord = tracksMap as Record<string, string>;
+
+  const detectVariantKey = () => {
+    if (rawLower.includes('touristen')) return mapRecord['nurburgring_touristenfahrten'];
+    if (rawLower.includes('24h')) return mapRecord['nurburgring_24h'];
+    if (rawLower.includes('nordschleife')) return mapRecord['nurburgring_nordschleife'];
+    if (rawLower.includes('sprint') && rawLower.includes('nurburgring')) return mapRecord['nurburgring_sprint'];
+    if (rawLower.includes('indy')) return mapRecord['brands_hatch_indy'];
+    if (rawLower.includes('junior') && rawLower.includes('monza')) return mapRecord['monza_junior'];
+    if (rawLower.includes('club') && rawLower.includes('vallelunga')) return mapRecord['vallelunga_club'];
+    if (rawLower.includes('east') && rawLower.includes('suzuka')) return mapRecord['suzuka_east'];
+    if (rawLower.includes('west') && rawLower.includes('suzuka')) return mapRecord['suzuka_west'];
+    if (rawLower.includes('island')) return mapRecord['oulton_park_island'];
+    if (rawLower.includes('fosters')) return mapRecord['oulton_park_fosters'];
+    if (rawLower.includes('national')) {
+      return mapRecord[`${baseSlug}_national`] || mapRecord['silverstone_national'];
+    }
+    if (rawLower.includes('international')) {
+      return mapRecord[`${baseSlug}_international`] || mapRecord['silverstone_international'];
+    }
+    return '';
+  };
+
   const matchedFile =
-    (rawLower.includes('nordschleife') && mapRecord['nordschleife']) ||
-    (rawLower.includes('24h') && mapRecord['nurburgring_24h']) ||
-    (rawLower.includes('indy') && mapRecord['brands_hatch_indy']) ||
+    detectVariantKey() ||
     mapRecord[fullSlug] ||
     mapRecord[baseSlug] ||
     Object.entries(mapRecord).find(([k]) => baseSlug && k.includes(baseSlug))?.[1] ||
@@ -101,7 +120,7 @@ export function TrackPreview({
           src={`/assets/tracks/${matchedFile}`}
           alt={trackName || 'Circuito'}
           onError={() => setErr(true)}
-          className="w-full h-full object-contain mix-blend-lighten contrast-125"
+          className="w-full h-full object-contain"
         />
       </div>
     );

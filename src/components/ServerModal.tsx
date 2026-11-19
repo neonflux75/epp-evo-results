@@ -121,18 +121,11 @@ export function ServerModal({
                 </span>
               </div>
               <div className="flex-1 flex items-center justify-center py-4 overflow-hidden">
-                <div
-                  className="w-full h-full flex items-center justify-center"
-                  style={{
-                    filter:
-                      'drop-shadow(0 0 6px rgba(239, 68, 68, 0.85)) drop-shadow(0 0 16px rgba(220, 38, 38, 0.45))',
-                  }}
-                >
-                  <TrackPreview
-                    trackName={srv.track}
-                    className="!bg-transparent !border-0 !shadow-none w-full h-full min-h-[320px] lg:min-h-[480px] scale-110"
-                  />
-                </div>
+                <TrackPreview
+                  trackName={srv.track}
+                  variant="modal"
+                  className="w-full h-full min-h-[340px] lg:min-h-[500px] scale-110"
+                />
               </div>
             </div>
           </div>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Livello_1" data-name="Livello 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 240">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
+
+      .cls-2 {
+        fill: #3e3c46;
+      }
+    </style>
+  </defs>
+  <path class="cls-1" d="M93.71,185.88c-1.58,0-3.08-.24-4.51-.71-6.64-2.2-9.17-8.7-9.78-10.63-1.82-5.72-1.55-10.89.8-15.37,2.68-5.1,7.94-8.87,15.62-11.2,20.43-6.2,84.42-27.46,95.34-32.04,11.19-4.69,19-14.97,20.91-27.5l.02-.12c2.18-14.28,3.61-23.71,15.46-37.51,3.38-3.94,5.27-5.85,7.58-7.99,4.23-3.93,7.96-3.6,9.81-3.05,2.89.86,5.16,3.29,5.93,6.36.74,2.97.25,7.02-.28,11.32-.58,4.75-1.3,10.67.36,12.77.25.32.67.71,1.67.82,2.94.33,5.86.27,8.68.22,6.15-.13,11.96-.25,15.95,3.97,5.01,5.29,20.36,24.87,22.5,27.64,3.17,4.11,2.05,11.65.29,15.46-.19.4-.37.85-.56,1.32-1.55,3.81-4.15,10.2-14.06,10.2-9.3,0-29.77.35-35.49.54h0c-28.83.94-51.44,4.86-71.15,12.32-23.13,8.76-49.34,22.74-68.42,36.47-6.21,4.47-11.79,6.71-16.67,6.71ZM242.64,44.43c-1.53,0-3.03,1.06-4.09,2.05-2.22,2.06-3.94,3.8-7.19,7.58-10.91,12.71-12.19,21.1-14.31,35l-.02.12c-2.17,14.26-11.12,25.99-23.92,31.36-11.3,4.74-74.77,25.82-95.82,32.21-6.36,1.93-10.61,4.87-12.65,8.75-1.71,3.24-1.86,7.12-.46,11.52.31.97,2.08,5.91,6.59,7.4,4.18,1.38,9.94-.46,16.68-5.32,19.41-13.97,46.07-28.19,69.57-37.09,20.24-7.67,43.36-11.68,72.76-12.64h0c5.75-.19,26.32-.54,35.66-.54,6.55,0,8.01-3.6,9.43-7.08.22-.55.44-1.07.65-1.53,1.39-3.01,1.8-8.36.29-10.31-2.02-2.61-17.37-22.19-22.17-27.26-2.47-2.61-6.78-2.52-12.22-2.41-2.85.06-6.08.13-9.36-.25-2.12-.24-3.81-1.15-5.03-2.69-2.95-3.73-2.16-10.21-1.39-16.47.44-3.65.9-7.43.39-9.5-.27-1.09-1.15-2.38-2.5-2.78-.3-.09-.59-.13-.89-.13Z"/>
+  <g id="Group_1388" data-name="Group 1388">
+    <g id="rect3457">
+      <rect x="235.78" y="107.44" width="10.58" height="42.84" transform="translate(-2.17 4.14) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_775" data-name="Rectangle 775">
+      <rect class="cls-1" x="235.98" y="144.96" width="5.35" height="5.35" transform="translate(-2.49 4.1) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_783" data-name="Rectangle 783">
+      <rect class="cls-2" x="241.33" y="144.87" width="5.35" height="5.35" transform="translate(-2.49 4.2) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_778" data-name="Rectangle 778">
+      <rect class="cls-1" x="235.79" y="134.26" width="5.35" height="5.35" transform="translate(-2.31 4.1) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_785" data-name="Rectangle 785">
+      <rect class="cls-2" x="241.15" y="134.16" width="5.35" height="5.35" transform="translate(-2.3 4.19) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_780" data-name="Rectangle 780">
+      <rect class="cls-1" x="235.61" y="123.55" width="5.35" height="5.35" transform="translate(-2.12 4.09) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_786" data-name="Rectangle 786">
+      <rect class="cls-2" x="240.96" y="123.46" width="5.35" height="5.35" transform="translate(-2.12 4.19) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_782" data-name="Rectangle 782">
+      <rect class="cls-1" x="235.43" y="112.84" width="5.35" height="5.35" transform="translate(-1.94 4.09) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_789" data-name="Rectangle 789">
+      <rect class="cls-2" x="240.78" y="112.75" width="5.35" height="5.35" transform="translate(-1.94 4.18) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_776" data-name="Rectangle 776">
+      <rect class="cls-2" x="235.89" y="139.61" width="5.35" height="5.35" transform="translate(-2.4 4.1) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_784" data-name="Rectangle 784">
+      <rect class="cls-1" x="241.24" y="139.52" width="5.35" height="5.35" transform="translate(-2.4 4.19) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_777" data-name="Rectangle 777">
+      <rect class="cls-2" x="235.7" y="128.9" width="5.35" height="5.35" transform="translate(-2.22 4.1) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_787" data-name="Rectangle 787">
+      <rect class="cls-1" x="241.06" y="128.81" width="5.35" height="5.35" transform="translate(-2.21 4.19) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_779" data-name="Rectangle 779">
+      <rect class="cls-2" x="235.52" y="118.19" width="5.35" height="5.35" transform="translate(-2.03 4.09) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_788" data-name="Rectangle 788">
+      <rect class="cls-1" x="240.87" y="118.1" width="5.35" height="5.35" transform="translate(-2.03 4.18) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_781" data-name="Rectangle 781">
+      <rect class="cls-2" x="235.34" y="107.49" width="5.35" height="5.35" transform="translate(-1.85 4.09) rotate(-.98)"/>
+    </g>
+    <g id="Rectangle_790" data-name="Rectangle 790">
+      <rect class="cls-1" x="240.69" y="107.39" width="5.35" height="5.35" transform="translate(-1.85 4.18) rotate(-.98)"/>
+    </g>
+  </g>
+</svg>
