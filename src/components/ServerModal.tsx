@@ -1,9 +1,38 @@
 'use client';
 import React from 'react';
-import { Users, Car, X, Clock, MapPin } from 'lucide-react';
+import { Users, X, Clock, MapPin, Route, CornerUpRight } from 'lucide-react';
 import { NationFlag, TrackPreview } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 import { CarHoverPreview } from '@/components/CarHoverPreview';
+import tracksInfo from '@/config/tracksInfo.json';
+
+interface TrackDetail {
+  lengthKm?: number | null;
+  turns?: number | null;
+  country?: string;
+  descIt?: string;
+  descEn?: string;
+}
+
+function resolveTrackDetails(trackName?: string): TrackDetail | null {
+  if (!trackName) return null;
+  const norm = trackName
+    .toLowerCase()
+    .replace(/^ks_/, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+
+  const db = tracksInfo as Record<string, TrackDetail>;
+  if (db[norm]) return db[norm];
+
+  const entries = Object.entries(db);
+  for (const [key, val] of entries) {
+    if (norm.includes(key) || key.includes(norm)) {
+      return val;
+    }
+  }
+  return null;
+}
 
 export function ServerModal({
   srv,
@@ -14,13 +43,18 @@ export function ServerModal({
   timerStr: string | null;
   onClose: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   if (!srv) return null;
 
   const phase = srv.online
     ? t.liveServers.phases[srv.sessionPhase as keyof typeof t.liveServers.phases] || srv.sessionPhase
     : t.common.offline;
   const count = Math.max(srv.players || 0, srv.playersList?.length || 0);
+  const trackDetails = resolveTrackDetails(srv.track);
+  const description =
+    lang === 'en'
+      ? trackDetails?.descEn || trackDetails?.descIt
+      : trackDetails?.descIt || trackDetails?.descEn;
 
   return (
     <div
@@ -92,9 +126,8 @@ export function ServerModal({
                             </span>
                           </td>
                           <td className="py-1.5 px-3 text-xs text-gray-300">
-							<CarHoverPreview carName={p.car} />
-						  </td>
-
+                            <CarHoverPreview carName={p.car} />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -119,8 +152,9 @@ export function ServerModal({
                   {srv.track || t.common.trackFallback}
                 </span>
               </div>
+
               <div
-                className="flex-1 flex items-center justify-center p-5 overflow-hidden"
+                className="flex-1 flex items-center justify-center p-4 overflow-hidden"
                 style={{
                   filter:
                     'brightness(1.2) drop-shadow(0 0 6px rgba(239, 68, 68, 0.95)) drop-shadow(0 0 18px rgba(220, 38, 38, 0.75))',
@@ -129,9 +163,49 @@ export function ServerModal({
                 <TrackPreview
                   trackName={srv.track}
                   variant="modal"
-                  className="w-full h-full max-h-[300px] lg:max-h-[400px]"
+                  className="w-full h-full max-h-[240px] lg:max-h-[280px]"
                 />
               </div>
+
+              {trackDetails && (
+                <div className="mt-2 pt-3 border-t border-gray-800/80 space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    {trackDetails.lengthKm && (
+                      <div className="bg-[#0e1118] border border-gray-800 rounded-lg px-3 py-2 flex items-center gap-2">
+                        <Route className="w-4 h-4 text-red-400 shrink-0" />
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                            {lang === 'en' ? 'Length' : 'Lunghezza'}
+                          </div>
+                          <div className="text-xs font-mono font-bold text-white">
+                            {trackDetails.lengthKm.toFixed(3)} km
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {trackDetails.turns && (
+                      <div className="bg-[#0e1118] border border-gray-800 rounded-lg px-3 py-2 flex items-center gap-2">
+                        <CornerUpRight className="w-4 h-4 text-amber-400 shrink-0" />
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                            {lang === 'en' ? 'Turns' : 'Curve'}
+                          </div>
+                          <div className="text-xs font-mono font-bold text-white">
+                            {trackDetails.turns}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {description && (
+                    <p className="text-xs leading-relaxed text-gray-400 bg-[#0e1118]/70 border border-gray-800/70 rounded-lg p-2.5">
+                      {description}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
