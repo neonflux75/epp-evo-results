@@ -110,7 +110,7 @@ export function ServerModal({
               )}
             </div>
 
-            <div className="lg:col-span-5 flex flex-col justify-between min-h-[360px] lg:min-h-[540px] px-2">
+            <div className="lg:col-span-5 flex flex-col justify-between min-h-[340px] lg:min-h-[460px] px-2">
               <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-gray-400 pb-2 border-b border-gray-800/70">
                 <span className="inline-flex items-center gap-1.5 font-bold">
                   <MapPin className="w-3.5 h-3.5 text-red-500" />
@@ -120,11 +120,17 @@ export function ServerModal({
                   {srv.track || t.common.trackFallback}
                 </span>
               </div>
-              <div className="flex-1 flex items-center justify-center py-4 overflow-hidden">
+              <div
+                className="flex-1 flex items-center justify-center p-5 overflow-hidden"
+                style={{
+                  filter:
+                    'brightness(1.2) drop-shadow(0 0 6px rgba(239, 68, 68, 0.95)) drop-shadow(0 0 18px rgba(220, 38, 38, 0.75))',
+                }}
+              >
                 <TrackPreview
                   trackName={srv.track}
                   variant="modal"
-                  className="w-full h-full min-h-[340px] lg:min-h-[500px] scale-110"
+                  className="w-full h-full max-h-[300px] lg:max-h-[400px]"
                 />
               </div>
             </div>
