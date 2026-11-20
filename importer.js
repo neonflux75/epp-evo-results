@@ -523,9 +523,25 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
     fs.readSync(fd, headBuffer, 0, headSize, 0);
     const headText = headBuffer.toString('utf-8');
 
-    const tailSize = Math.min(stat.size, 4000000);
-    const tailBuffer = Buffer.alloc(tailSize);
-    fs.readSync(fd, tailBuffer, 0, tailSize, stat.size - tailSize);
+    const chunkSize = 2 * 1024 * 1024;
+    let readStart = Math.max(0, stat.size - chunkSize);
+    let combinedText = '';
+    while (true) {
+      const len = stat.size - readStart;
+      const buf = Buffer.alloc(len);
+      fs.readSync(fd, buf, 0, len, readStart);
+      combinedText = buf.toString('utf-8');
+      if (
+        readStart === 0 ||
+        /Race created/i.test(combinedText) ||
+        /Qualifying created/i.test(combinedText) ||
+        /Practice created/i.test(combinedText) ||
+        /Warmup created/i.test(combinedText)
+      ) {
+        break;
+      }
+      readStart = Math.max(0, readStart - chunkSize);
+    }
     fs.closeSync(fd);
 
     const durations = readServerSessionDurations(serverDir, headText);
@@ -538,10 +554,13 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
       maxWaitingSec: durations.maxWaitingSec,
     };
     activeOvertimeSec = isRaceWeekend ? durations.qualyOvertimeSec : durations.practiceOvertimeSec;
-    const lines = tailBuffer.toString('utf-8').split(/\r?\n/);
+    const lines = combinedText.split(/\r?\n/);
+    let lastSeenTs = null;
 
     for (const line of lines) {
-      const ts = parseLogTimestampMs(line);
+      const parsedTs = parseLogTimestampMs(line);
+      if (parsedTs) lastSeenTs = parsedTs;
+      const ts = parsedTs || lastSeenTs;
 
       if (line.includes('TimeAttackRemote Practice created')) {
         sessionPhase = 'PRATICA';
@@ -564,29 +583,40 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
         activeOvertimeSec = durations.warmupOvertimeSec;
         isOvertime = false;
         overtimeStartMs = null;
-      } else if (line.includes('InstantRaceRemote Race created')) {
+      } else if (
+        /Race created/i.test(line) ||
+        /Session.*Race.*created/i.test(line) ||
+        /Starting session.*Race/i.test(line)
+      ) {
         sessionPhase = 'GARA';
         sessionStartMs = ts;
         activeDurationMs = durations.raceMs;
         activeOvertimeSec = durations.raceOvertimeSec;
         isOvertime = false;
         overtimeStartMs = null;
+      } else if (line.includes('changing session phase') && sessionPhase === 'GARA') {
+        if (line.includes('3 -> 4') || line.includes('2 -> 3') || line.includes('1 -> 2')) {
+          sessionStartMs = ts;
+          activeDurationMs = durations.raceMs;
+          activeOvertimeSec = durations.raceOvertimeSec;
+          isOvertime = false;
+          overtimeStartMs = null;
+        }
+      } else if (line.includes('WAIT_LAST_LAP') || line.includes('Overtime_Waiting_For_Leader')) {
+        const expectedEnd = sessionStartMs && activeDurationMs > 0 ? sessionStartMs + activeDurationMs : 0;
+        const nearEnd = !expectedEnd || !ts || ts >= expectedEnd - 15000;
+        if (nearEnd) {
+          if (!isOvertime) overtimeStartMs = ts;
+          isOvertime = true;
+        }
       } else if (
-        sessionPhase === 'GARA' &&
-        (line.includes('changing session phase 3 -> 4') ||
-          line.includes('changing session phase 2 -> 3') ||
-          line.includes('Race started'))
+        line.includes('Session finished') ||
+        line.includes('PostSession') ||
+        line.includes('Podium') ||
+        line.includes('changing session phase')
       ) {
-        sessionStartMs = ts;
-        activeDurationMs = durations.raceMs;
-        activeOvertimeSec = durations.raceOvertimeSec;
         isOvertime = false;
         overtimeStartMs = null;
-      } else if (line.includes('WAIT_LAST_LAP') || line.includes('Overtime_Waiting_For_Leader')) {
-        if (!isOvertime) overtimeStartMs = ts;
-        isOvertime = true;
-      } else if (line.includes('Session finished') || line.includes('PostSession') || line.includes('Podium')) {
-        isOvertime = false;
       }
 
 
@@ -633,8 +663,7 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
     }
 
     if (!sessionStartMs) {
-      sessionStartMs = stat.birthtimeMs || stat.mtimeMs;
-      activeDurationMs = sessionPhase === 'GARA' ? durations.raceMs : sessionPhase === 'QUALIFICHE' ? durations.qualyMs : durations.practiceMs;
+      activeDurationMs = 0;
     }
 
     if (currentPlayers === 0) {
