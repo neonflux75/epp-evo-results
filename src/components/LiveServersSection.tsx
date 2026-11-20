@@ -36,7 +36,7 @@ export function LiveServersSection({ liveServers, onlineViewers, selectedLiveSer
     if (count > 0 && (otSec > 0 || srv.isOvertime)) {
       const otEndMs = Number(srv.overtimeEndTimeMs || endMs + otSec * 1000);
       const otRemaining = Math.max(0, Math.floor((otEndMs - nowMs) / 1000));
-      if (otRemaining > 0 || srv.isOvertime) {
+       if (otRemaining > 0) {
         const formatted = `${String(Math.floor(otRemaining / 60)).padStart(2, '0')}:${String(otRemaining % 60).padStart(2, '0')}`;
         return { text: `OVERTIME ${formatted}`, isOvertime: true };
       }

@@ -571,7 +571,12 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
         activeOvertimeSec = durations.raceOvertimeSec;
         isOvertime = false;
         overtimeStartMs = null;
-      } else if (line.includes('changing session phase 3 -> 4') && sessionPhase === 'GARA') {
+      } else if (
+        sessionPhase === 'GARA' &&
+        (line.includes('changing session phase 3 -> 4') ||
+          line.includes('changing session phase 2 -> 3') ||
+          line.includes('Race started'))
+      ) {
         sessionStartMs = ts;
         activeDurationMs = durations.raceMs;
         activeOvertimeSec = durations.raceOvertimeSec;
@@ -580,6 +585,8 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
       } else if (line.includes('WAIT_LAST_LAP') || line.includes('Overtime_Waiting_For_Leader')) {
         if (!isOvertime) overtimeStartMs = ts;
         isOvertime = true;
+      } else if (line.includes('Session finished') || line.includes('PostSession') || line.includes('Podium')) {
+        isOvertime = false;
       }
 
 
