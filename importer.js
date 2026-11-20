@@ -469,8 +469,9 @@ function readServerSessionDurations(serverDir, logHeadStr) {
     }
   } catch (e) {}
 
-  // 2. Sovrascrivi con i valori esatti presenti nella Season Definition all'inizio del log
-  if (logHeadStr) {
+  // 2. Usa la Season Definition dal log solo se manca server.json
+  const hasServerJson = fs.existsSync(path.join(serverDir, 'server.json'));
+  if (!hasServerJson && logHeadStr) {
     const blockRegex = /"session_type":\s*"?([A-Za-z0-9_]+)"?[\s\S]{0,250}?"session_duration_ms":\s*(\d+)/g;
     let foundTyped = false;
     for (const m of logHeadStr.matchAll(blockRegex)) {

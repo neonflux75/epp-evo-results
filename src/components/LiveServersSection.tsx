@@ -21,8 +21,9 @@ export function LiveServersSection({ liveServers, onlineViewers, selectedLiveSer
     return () => clearInterval(iv);
   }, []);
 
-  const getTimerState = (srv: any): { text: string; isOvertime: boolean } | null => {
+   const getTimerState = (srv: any): { text: string; isOvertime: boolean } | null => {
     if (!srv?.online || !srv?.sessionEndTimeMs) return null;
+    const count = Math.max(srv.players || 0, srv.playersList?.length || 0);
     const endMs = Number(srv.sessionEndTimeMs);
     const remainingSec = Math.floor((endMs - nowMs) / 1000);
 
@@ -32,15 +33,18 @@ export function LiveServersSection({ liveServers, onlineViewers, selectedLiveSer
     }
 
     const otSec = Number(srv.overtimeSec || 0);
-    if (otSec > 0 || srv.isOvertime) {
+    if (count > 0 && (otSec > 0 || srv.isOvertime)) {
       const otEndMs = Number(srv.overtimeEndTimeMs || endMs + otSec * 1000);
       const otRemaining = Math.max(0, Math.floor((otEndMs - nowMs) / 1000));
-      const formatted = `${String(Math.floor(otRemaining / 60)).padStart(2, '0')}:${String(otRemaining % 60).padStart(2, '0')}`;
-      return { text: `OVERTIME ${formatted}`, isOvertime: true };
+      if (otRemaining > 0 || srv.isOvertime) {
+        const formatted = `${String(Math.floor(otRemaining / 60)).padStart(2, '0')}:${String(otRemaining % 60).padStart(2, '0')}`;
+        return { text: `OVERTIME ${formatted}`, isOvertime: true };
+      }
     }
 
     return { text: '00:00', isOvertime: false };
   };
+
 
   const activeModal = liveServers.find((s: any) => s.id === selectedLiveServerId) || null;
   const activeModalTimer = getTimerState(activeModal);
