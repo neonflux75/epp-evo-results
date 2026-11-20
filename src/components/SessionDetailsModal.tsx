@@ -1,6 +1,6 @@
 'use client';
-import React from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Activity } from 'lucide-react';
 import { TrackPreview, normalizeSessionCategory, formatLocalDateTime } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
 import { SessionResultRow } from './SessionResultRow';
@@ -11,7 +11,20 @@ interface SessionDetailsModalProps {
   expandedDriverGuid: string | null;
   onCloseSession: () => void;
   onToggleDriverLaps: (guid: string | null) => void;
+  onSwitchSession?: (sessionId: number) => void;
 }
+
+type TabKind = 'PRACTICE' | 'QUALIFY' | 'WARMUP' | 'RACE';
+
+function getTabKind(rawType?: string): TabKind {
+  const s = String(rawType || '').toLowerCase();
+  if (s.includes('race') || s.includes('gara')) return 'RACE';
+  if (s.includes('qual')) return 'QUALIFY';
+  if (s.includes('warm')) return 'WARMUP';
+  return 'PRACTICE';
+}
+
+const TAB_ORDER: TabKind[] = ['PRACTICE', 'QUALIFY', 'WARMUP', 'RACE'];
 
 export function SessionDetailsModal({
   selectedSession,
@@ -19,9 +32,36 @@ export function SessionDetailsModal({
   expandedDriverGuid,
   onCloseSession,
   onToggleDriverLaps,
+  onSwitchSession,
 }: SessionDetailsModalProps) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const [activeId, setActiveId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (selectedSession?.session?.id) {
+      setActiveId(Number(selectedSession.session.id));
+    }
+  }, [selectedSession?.session?.id]);
+
   if (!selectedSession && !loadingSession) return null;
+
+  const relatedSessions: any[] = Array.isArray(selectedSession?.relatedSessions)
+    ? selectedSession.relatedSessions
+    : selectedSession?.session
+    ? [selectedSession.session]
+    : [];
+
+  const availableTabs = TAB_ORDER.map((kind) => {
+    const match = relatedSessions.find((rs) => getTabKind(rs.session_type) === kind);
+    return match ? { kind, session: match } : null;
+  }).filter(Boolean) as { kind: TabKind; session: any }[];
+
+  const getTabLabel = (kind: TabKind) => {
+    if (kind === 'RACE') return lang === 'en' ? 'RACE' : 'GARA';
+    if (kind === 'QUALIFY') return lang === 'en' ? 'QUALIFYING' : 'QUALIFICHE';
+    if (kind === 'WARMUP') return 'WARMUP';
+    return lang === 'en' ? 'PRACTICE' : 'PRATICA';
+  };
 
   const sessCat = normalizeSessionCategory(selectedSession?.session?.session_type);
   const isRace = sessCat === 'Race';
@@ -33,25 +73,59 @@ export function SessionDetailsModal({
       onClick={onCloseSession}
     >
       <div
-        className="bg-[#131720] border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-[#131720] border border-gray-700 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b border-gray-800 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <TrackPreview trackName={selectedSession?.session?.track_name} className="w-16 h-11" />
-            <div>
-              <h3 className="text-lg font-bold text-white">
-                {selectedSession?.session?.track_name} — {selectedSession?.session?.session_type}
+          <div className="flex items-center gap-3 min-w-0">
+            <TrackPreview trackName={selectedSession?.session?.track_name} className="w-16 h-11 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold text-white truncate">
+                {selectedSession?.session?.track_name}
               </h3>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-400 truncate">
                 {selectedSession?.session?.server_name} • {formatLocalDateTime(selectedSession?.session?.played_at)}
               </p>
             </div>
           </div>
-          <button onClick={onCloseSession} className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300">
+          <button
+            onClick={onCloseSession}
+            className="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 cursor-pointer shrink-0"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {availableTabs.length > 0 && (
+          <div className="px-4 pt-3 pb-2 bg-[#0e1118] border-b border-gray-800 flex items-center gap-2 flex-wrap">
+            {availableTabs.map(({ kind, session: tabSess }) => {
+              const isSelected = Number(tabSess.id) === Number(activeId || selectedSession?.session?.id);
+              return (
+                <button
+                  key={tabSess.id}
+                  type="button"
+                  disabled={loadingSession || isSelected}
+                  onClick={() => {
+                    setActiveId(Number(tabSess.id));
+                    if (onSwitchSession) onSwitchSession(Number(tabSess.id));
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wider transition cursor-pointer ${
+                    isSelected
+                      ? 'bg-red-600 text-white shadow-md shadow-red-900/40'
+                      : 'bg-[#131720] text-gray-400 border border-gray-800 hover:text-white hover:border-gray-700'
+                  }`}
+                >
+                  {getTabLabel(kind)}
+                </button>
+              );
+            })}
+            {loadingSession && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-red-400 font-semibold ml-2">
+                <Activity className="w-3.5 h-3.5 animate-spin" />
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="p-4 overflow-y-auto space-y-4">
           <div className="flex items-center justify-between">
