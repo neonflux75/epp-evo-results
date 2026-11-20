@@ -15,7 +15,7 @@ interface SessionsSectionProps {
   onSessionTypeChange: (v: string) => void;
   selectedSession: any;
   loadingSession: boolean;
-  onOpenSession: (sessionId: number) => void;
+  onOpenSession: (sessionId: number, groupIds?: number[]) => void;
   onCloseSession: () => void;
   expandedDriverGuid: string | null;
   onToggleDriverLaps: (guid: string | null) => void;
@@ -73,30 +73,38 @@ export function SessionsSection({
         ).sort() as string[]);
 
   const groupedEvents = useMemo(() => {
-    const sorted = [...(sessions || [])].sort((a, b) => {
+    const chronoAsc = [...(sessions || [])].sort((a, b) => {
       const ta = Date.parse(String(a.played_at || '')) || 0;
       const tb = Date.parse(String(b.played_at || '')) || 0;
-      return tb !== ta ? tb - ta : Number(b.id) - Number(a.id);
+      return ta !== tb ? ta - tb : Number(a.id) - Number(b.id);
     });
 
     const events: GroupedEvent[] = [];
-    const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+    const MAX_GAP_MS = 6 * 60 * 60 * 1000;
 
-    for (const s of sorted) {
+    for (const s of chronoAsc) {
       const kind = detectSessionKind(s.session_type);
+      const priority = KIND_PRIORITY[kind];
       const sTime = Date.parse(String(s.played_at || '')) || 0;
-      const last = events[events.length - 1];
+      const current = events[events.length - 1];
 
-      const canMerge =
-        last &&
-        last.server_name === s.server_name &&
-        last.track_name === s.track_name &&
-        !last.sessions.some((existing) => detectSessionKind(existing.session_type) === kind) &&
-        Math.abs((Date.parse(String(last.played_at || '')) || 0) - sTime) <= THREE_HOURS_MS;
+      const prevSession = current ? current.sessions[current.sessions.length - 1] : null;
+      const prevPriority = prevSession ? KIND_PRIORITY[detectSessionKind(prevSession.session_type)] : 99;
+      const prevTime = prevSession ? Date.parse(String(prevSession.played_at || '')) || 0 : 0;
 
-      if (canMerge) {
-        last.sessions.push(s);
-        last.driver_count = Math.max(Number(last.driver_count || 0), Number(s.driver_count || 0));
+      const canChain =
+        Boolean(current && prevSession) &&
+        current.server_name === s.server_name &&
+        current.track_name === s.track_name &&
+        priority > prevPriority &&
+        Math.abs(sTime - prevTime) <= MAX_GAP_MS;
+
+      if (canChain) {
+        current.sessions.push(s);
+        current.played_at = s.played_at;
+        current.driver_count = Math.max(Number(current.driver_count || 0), Number(s.driver_count || 0));
+        current.primarySession = s;
+        current.primaryKind = kind;
       } else {
         events.push({
           key: `evt-${s.id}`,
@@ -111,18 +119,7 @@ export function SessionsSection({
       }
     }
 
-    for (const ev of events) {
-      ev.sessions.sort(
-        (a, b) => KIND_PRIORITY[detectSessionKind(a.session_type)] - KIND_PRIORITY[detectSessionKind(b.session_type)]
-      );
-      const best = [...ev.sessions].sort(
-        (a, b) => KIND_PRIORITY[detectSessionKind(b.session_type)] - KIND_PRIORITY[detectSessionKind(a.session_type)]
-      )[0];
-      ev.primarySession = best;
-      ev.primaryKind = detectSessionKind(best.session_type);
-    }
-
-    return events;
+    return events.reverse();
   }, [sessions]);
   const filteredEvents = groupedEvents
     .filter((ev) => {
@@ -232,11 +229,12 @@ export function SessionsSection({
                 ? ev.sessions.find((s) => detectSessionKind(s.session_type) === selectedSessionType) || ev.primarySession
                 : ev.primarySession;
             const targetKind = detectSessionKind(targetSession.session_type);
+            const groupIds = ev.sessions.map((sub) => Number(sub.id));
 
             return (
               <div
                 key={ev.key}
-                onClick={() => onOpenSession(targetSession.id)}
+                onClick={() => onOpenSession(targetSession.id, groupIds)}
                 className="p-4 hover:bg-gray-800/30 transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -300,7 +298,10 @@ export function SessionsSection({
         onCloseSession={onCloseSession}
         expandedDriverGuid={expandedDriverGuid}
         onToggleDriverLaps={onToggleDriverLaps}
-        onSwitchSession={onOpenSession}
+        onSwitchSession={(newId) => {
+          const currentIds = (selectedSession?.relatedSessions || []).map((rs: any) => Number(rs.id));
+          onOpenSession(newId, currentIds);
+        }}
       />
     </>
   );
