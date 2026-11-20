@@ -418,12 +418,19 @@ function parseLogTimestampMs(line) {
 }
 
 function readServerSessionDurations(serverDir, logHeadStr) {
-  const durations = {
+    const durations = {
     practiceMs: 3600000,
     qualyMs: 600000,
     warmupMs: 300000,
-    raceMs: 1200000
+    raceMs: 1200000,
+    practiceOvertimeSec: 10,
+    qualyOvertimeSec: 90,
+    warmupOvertimeSec: 90,
+    raceOvertimeSec: 10,
+    minWaitingSec: 10,
+    maxWaitingSec: 30
   };
+
 
   // 1. Leggi i file JSON di configurazione nella cartella del singolo server
   try {
@@ -444,10 +451,21 @@ function readServerSessionDurations(serverDir, logHeadStr) {
           }
         }
       }
+      if (Number(cfg.practice_length) > 0) durations.practiceMs = Number(cfg.practice_length) * 1000;
+      if (Number(cfg.qualify_length) > 0) durations.qualyMs = Number(cfg.qualify_length) * 1000;
+      if (Number(cfg.warmup_length) > 0) durations.warmupMs = Number(cfg.warmup_length) * 1000;
+      if (Number(cfg.race_length) > 0) durations.raceMs = Number(cfg.race_length) * 1000;
       if (Number(cfg.practice_duration_minutes) > 0) durations.practiceMs = Number(cfg.practice_duration_minutes) * 60000;
       if (Number(cfg.qualifying_duration_minutes) > 0) durations.qualyMs = Number(cfg.qualifying_duration_minutes) * 60000;
       if (Number(cfg.warmup_duration_minutes) > 0) durations.warmupMs = Number(cfg.warmup_duration_minutes) * 60000;
       if (Number(cfg.race_duration_minutes) > 0) durations.raceMs = Number(cfg.race_duration_minutes) * 60000;
+      if (cfg.practice_overtime !== undefined) durations.practiceOvertimeSec = Number(cfg.practice_overtime) || 0;
+      if (cfg.qualify_overtime !== undefined) durations.qualyOvertimeSec = Number(cfg.qualify_overtime) || 0;
+      if (cfg.warmup_overtime !== undefined) durations.warmupOvertimeSec = Number(cfg.warmup_overtime) || 0;
+      if (cfg.race_overtime !== undefined) durations.raceOvertimeSec = Number(cfg.race_overtime) || 0;
+      if (cfg.min_waiting_for_players !== undefined) durations.minWaitingSec = Number(cfg.min_waiting_for_players) || 0;
+      if (cfg.max_waiting_for_players !== undefined) durations.maxWaitingSec = Number(cfg.max_waiting_for_players) || 0;
+
     }
   } catch (e) {}
 
@@ -489,7 +507,10 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
   let sessionPhase = isRaceWeekend ? 'QUALIFICHE' : 'PRATICA';
   let sessionStartMs = null;
   let activeDurationMs = 0;
+  let activeOvertimeSec = 0;
+  let overtimeStartMs = null;
   let isOvertime = false;
+  let serverSettings = null;
   const activeDrivers = new Map();
 
   try {
@@ -507,6 +528,15 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
     fs.closeSync(fd);
 
     const durations = readServerSessionDurations(serverDir, headText);
+    serverSettings = {
+      practiceOvertimeSec: durations.practiceOvertimeSec,
+      qualyOvertimeSec: durations.qualyOvertimeSec,
+      warmupOvertimeSec: durations.warmupOvertimeSec,
+      raceOvertimeSec: durations.raceOvertimeSec,
+      minWaitingSec: durations.minWaitingSec,
+      maxWaitingSec: durations.maxWaitingSec,
+    };
+    activeOvertimeSec = isRaceWeekend ? durations.qualyOvertimeSec : durations.practiceOvertimeSec;
     const lines = tailBuffer.toString('utf-8').split(/\r?\n/);
 
     for (const line of lines) {
@@ -516,28 +546,41 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
         sessionPhase = 'PRATICA';
         sessionStartMs = ts;
         activeDurationMs = durations.practiceMs;
+        activeOvertimeSec = durations.practiceOvertimeSec;
         isOvertime = false;
+        overtimeStartMs = null;
       } else if (line.includes('TimeAttackRemote Qualifying created')) {
         sessionPhase = isRaceWeekend ? 'QUALIFICHE' : 'PRATICA';
         sessionStartMs = ts;
         activeDurationMs = isRaceWeekend ? durations.qualyMs : durations.practiceMs;
+        activeOvertimeSec = isRaceWeekend ? durations.qualyOvertimeSec : durations.practiceOvertimeSec;
         isOvertime = false;
+        overtimeStartMs = null;
       } else if (line.includes('Warmup created') || line.includes('WarmUp created')) {
         sessionPhase = 'WARMUP';
         sessionStartMs = ts;
         activeDurationMs = durations.warmupMs;
+        activeOvertimeSec = durations.warmupOvertimeSec;
         isOvertime = false;
+        overtimeStartMs = null;
       } else if (line.includes('InstantRaceRemote Race created')) {
         sessionPhase = 'GARA';
         sessionStartMs = ts;
         activeDurationMs = durations.raceMs;
+        activeOvertimeSec = durations.raceOvertimeSec;
         isOvertime = false;
+        overtimeStartMs = null;
       } else if (line.includes('changing session phase 3 -> 4') && sessionPhase === 'GARA') {
         sessionStartMs = ts;
         activeDurationMs = durations.raceMs;
+        activeOvertimeSec = durations.raceOvertimeSec;
+        isOvertime = false;
+        overtimeStartMs = null;
       } else if (line.includes('WAIT_LAST_LAP') || line.includes('Overtime_Waiting_For_Leader')) {
+        if (!isOvertime) overtimeStartMs = ts;
         isOvertime = true;
       }
+
 
       const updMatch = line.match(/Server updated:\s*(\d+)\s*players/);
       if (updMatch) currentPlayers = parseInt(updMatch[1], 10);
@@ -613,8 +656,23 @@ async function parseLiveLog(logPath, isRaceWeekend, serverDir) {
   }
 
   const sessionEndTimeMs = sessionStartMs && activeDurationMs > 0 ? sessionStartMs + activeDurationMs : null;
+  const effectiveOvertimeStart = overtimeStartMs || sessionEndTimeMs;
+  const overtimeEndTimeMs =
+    effectiveOvertimeStart && activeOvertimeSec > 0
+      ? effectiveOvertimeStart + activeOvertimeSec * 1000
+      : null;
 
-  return { currentPlayers: playersList.length, sessionPhase, sessionEndTimeMs, isOvertime, playersList };
+  return {
+    currentPlayers: playersList.length,
+    sessionPhase,
+    sessionEndTimeMs,
+    isOvertime,
+    overtimeSec: activeOvertimeSec,
+    overtimeEndTimeMs,
+    serverSettings,
+    playersList
+  };
+
 }
 
 let isScanning = false;
@@ -709,7 +767,9 @@ async function scanServers(forceRefreshResults = false) {
         playersList: isOnline ? logData.playersList : [],
         sessionEndTimeMs: isOnline ? logData.sessionEndTimeMs : null,
         isOvertime: isOnline ? logData.isOvertime : false,
-
+        overtimeSec: isOnline ? (logData.overtimeSec || 0) : 0,
+        overtimeEndTimeMs: isOnline ? (logData.overtimeEndTimeMs || null) : null,
+        serverSettings: isOnline ? (logData.serverSettings || null) : null,
       });
     }
 

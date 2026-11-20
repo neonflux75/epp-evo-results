@@ -21,14 +21,29 @@ export function LiveServersSection({ liveServers, onlineViewers, selectedLiveSer
     return () => clearInterval(iv);
   }, []);
 
-  const formatTimer = (srv: any) => {
+  const getTimerState = (srv: any): { text: string; isOvertime: boolean } | null => {
     if (!srv?.online || !srv?.sessionEndTimeMs) return null;
-    const diffSec = Math.max(0, Math.floor((Number(srv.sessionEndTimeMs) - nowMs) / 1000));
-    if (diffSec === 0) return '00:00';
-    return `${String(Math.floor(diffSec / 60)).padStart(2, '0')}:${String(diffSec % 60).padStart(2, '0')}`;
+    const endMs = Number(srv.sessionEndTimeMs);
+    const remainingSec = Math.floor((endMs - nowMs) / 1000);
+
+    if (!srv.isOvertime && remainingSec > 0) {
+      const text = `${String(Math.floor(remainingSec / 60)).padStart(2, '0')}:${String(remainingSec % 60).padStart(2, '0')}`;
+      return { text, isOvertime: false };
+    }
+
+    const otSec = Number(srv.overtimeSec || 0);
+    if (otSec > 0 || srv.isOvertime) {
+      const otEndMs = Number(srv.overtimeEndTimeMs || endMs + otSec * 1000);
+      const otRemaining = Math.max(0, Math.floor((otEndMs - nowMs) / 1000));
+      const formatted = `${String(Math.floor(otRemaining / 60)).padStart(2, '0')}:${String(otRemaining % 60).padStart(2, '0')}`;
+      return { text: `OVERTIME ${formatted}`, isOvertime: true };
+    }
+
+    return { text: '00:00', isOvertime: false };
   };
 
   const activeModal = liveServers.find((s: any) => s.id === selectedLiveServerId) || null;
+  const activeModalTimer = getTimerState(activeModal);
 
   return (
     <>
@@ -51,7 +66,7 @@ export function LiveServersSection({ liveServers, onlineViewers, selectedLiveSer
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {liveServers.map((srv: any) => {
             const count = Math.max(srv.players || 0, srv.playersList?.length || 0);
-            const timerStr = formatTimer(srv);
+            const timer = getTimerState(srv);
             return (
               <div key={srv.id} onClick={() => onSelectServer(srv.id)} className="bg-[#131720] border border-gray-800/90 rounded-lg p-4 flex flex-col justify-between hover:border-red-500/60 hover:bg-[#171c28] cursor-pointer transition group">
                 <div className="flex items-start justify-between gap-3">
@@ -59,14 +74,20 @@ export function LiveServersSection({ liveServers, onlineViewers, selectedLiveSer
                     <TrackPreview trackName={srv.track} className="w-16 h-11" />
                     <div className="min-w-0">
                       {srv.online && srv.sessionPhase && (
-                        <div className="inline-flex items-center gap-1.5 mb-1">
+                        <div className="inline-flex items-center gap-1.5 mb-1 flex-wrap">
                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider ${srv.sessionPhase === 'GARA' ? 'bg-red-500/20 text-red-400 border border-red-500/40' : srv.sessionPhase === 'QUALIFICHE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' : 'bg-sky-500/20 text-sky-400 border border-sky-500/40'}`}>
                             {t.liveServers.phases[srv.sessionPhase as keyof typeof t.liveServers.phases] || srv.sessionPhase}
                           </span>
-                          {timerStr && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-800/90 border border-gray-700 text-gray-200 font-mono text-[10px] font-bold">
-                              <Clock className="w-2.5 h-2.5 text-gray-400" />
-                              {timerStr}
+                          {timer && (
+                            <span
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border font-mono text-[10px] font-bold ${
+                                timer.isOvertime
+                                  ? 'bg-red-500/20 border-red-500/60 text-red-400 animate-pulse'
+                                  : 'bg-gray-800/90 border-gray-700 text-gray-200'
+                              }`}
+                            >
+                              <Clock className={`w-2.5 h-2.5 ${timer.isOvertime ? 'text-red-400' : 'text-gray-400'}`} />
+                              {timer.text}
                             </span>
                           )}
                         </div>
@@ -91,7 +112,12 @@ export function LiveServersSection({ liveServers, onlineViewers, selectedLiveSer
           })}
         </div>
       </section>
-      <ServerModal srv={activeModal} timerStr={formatTimer(activeModal)} onClose={() => onSelectServer(null)} />
+      <ServerModal
+        srv={activeModal}
+        timerStr={activeModalTimer?.text || null}
+        isOvertime={activeModalTimer?.isOvertime || false}
+        onClose={() => onSelectServer(null)}
+      />
     </>
   );
 }
