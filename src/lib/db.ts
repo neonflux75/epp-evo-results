@@ -12,8 +12,8 @@ function getPool(): Pool {
     pool = new Pool({
       connectionString: cleanUrl,
       ssl: { rejectUnauthorized: false },
-      max: 3,
-      idleTimeoutMillis: 30000,
+      max: 1,
+      idleTimeoutMillis: 15000,
       connectionTimeoutMillis: 10000,
     });
   }
@@ -101,8 +101,11 @@ export async function ensureSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_laps_track_valid ON laps(track_name, is_valid, lap_time_ms);
+    CREATE INDEX IF NOT EXISTS idx_laps_track_car_valid ON laps(track_name, car_model, is_valid, lap_time_ms);
     CREATE INDEX IF NOT EXISTS idx_laps_driver ON laps(driver_guid);
+    CREATE INDEX IF NOT EXISTS idx_laps_session ON laps(session_id);
     CREATE INDEX IF NOT EXISTS idx_session_results_session ON session_results(session_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_played_at ON sessions(played_at DESC, id DESC);
   `);
 
   schemaInitialized = true;
