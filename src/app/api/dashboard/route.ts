@@ -67,9 +67,9 @@ export async function GET(request: Request) {
     const trackFilter = searchParams.get('track') || 'ALL';
     const carFilter = searchParams.get('car') || 'ALL';
     const sessionId = searchParams.get('sessionId');
+    const eventIdsParam = searchParams.get('eventIds');
     const driverGuid = searchParams.get('driverGuid');
     const viewerId = searchParams.get('viewerId');
-
     if (!sessionId && !driverGuid) {
       const onlineViewers = await trackAndCountViewers(viewerId);
       const cacheKey = `${trackFilter}::${carFilter}`;
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
       try {
         const liveRes = await db.execute('SELECT payload, updated_at FROM live_status WHERE id = 1');
         if (liveRes.rows.length > 0) {
-          const row = liveRes.rows[0] as any;
+          const row = liveRes.rows as any;
           const parsed = JSON.parse(String(row.payload || '[]'));
           const rawUpdated = row.updated_at;
           const updatedMs = typeof rawUpdated === 'number'
@@ -201,6 +201,7 @@ export async function GET(request: Request) {
         WHERE rn = 1
         ORDER BY track_name ASC
       `);
+
       const trackBestSectorsRes = await db.execute(`
         SELECT
           track_name,
@@ -245,7 +246,6 @@ export async function GET(request: Request) {
         onlineViewers
       });
     }
-
     if (driverGuid) {
       const driverInfoRes = await db.execute({
         sql: `
@@ -355,37 +355,22 @@ export async function GET(request: Request) {
       const session = sessRes.rows[0] as any;
 
       let relatedSessions: any[] = session ? [session] : [];
-      if (session) {
-        const nearbyRes = await db.execute({
-          sql: `
-            SELECT id, session_type, played_at
-            FROM sessions
-            WHERE server_name = ? AND track_name = ?
-            ORDER BY played_at DESC, id DESC
-            LIMIT 12
-          `,
-          args: [session.server_name, session.track_name]
-        });
-        const baseTime = Date.parse(String(session.played_at || '')) || 0;
-        const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
-        const byKind = new Map<string, any>();
-        for (const ns of nearbyRes.rows as any[]) {
-          const tDiff = Math.abs((Date.parse(String(ns.played_at || '')) || 0) - baseTime);
-          if (tDiff <= THREE_HOURS_MS) {
-            const raw = String(ns.session_type || '').toLowerCase();
-            const k = raw.includes('race') || raw.includes('gara')
-              ? 'RACE'
-              : raw.includes('qual')
-              ? 'QUALIFY'
-              : raw.includes('warm')
-              ? 'WARMUP'
-              : 'PRACTICE';
-            if (!byKind.has(k) || Number(ns.id) === Number(session.id)) {
-              byKind.set(k, ns);
-            }
+      if (session && eventIdsParam) {
+        const parsedIds = eventIdsParam
+          .split(',')
+          .map((x) => Number(x.trim()))
+          .filter((n) => Number.isInteger(n) && n > 0)
+          .slice(0, 6);
+        if (parsedIds.length > 0) {
+          const placeholders = parsedIds.map(() => '?').join(',');
+          const relRes = await db.execute({
+            sql: `SELECT id, session_type, played_at FROM sessions WHERE id IN (${placeholders})`,
+            args: parsedIds
+          });
+          if (relRes.rows.length > 0) {
+            relatedSessions = relRes.rows as any[];
           }
         }
-        relatedSessions = Array.from(byKind.values());
       }
 
       const resultsRes = await db.execute({
