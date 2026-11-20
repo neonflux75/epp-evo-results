@@ -2,8 +2,21 @@ import { NextResponse } from 'next/server';
 import db, { ensureSchema } from '@/lib/db';
 
 const dashboardCache = new Map<string, { data: any; expiresAt: number }>();
-const CACHE_TTL_MS = 25000;
+const CACHE_TTL_MS = 30000;
+const MAX_CACHE_ENTRIES = 6;
 let viewersTableReady = false;
+
+function setCacheBounded(key: string, data: any) {
+  const now = Date.now();
+  for (const [k, v] of dashboardCache.entries()) {
+    if (now >= v.expiresAt) dashboardCache.delete(k);
+  }
+  if (dashboardCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = dashboardCache.keys().next().value;
+    if (oldestKey) dashboardCache.delete(oldestKey);
+  }
+  dashboardCache.set(key, { data, expiresAt: now + CACHE_TTL_MS });
+}
 
 async function trackAndCountViewers(viewerId: string | null): Promise<number> {
   try {
@@ -87,31 +100,26 @@ export async function GET(request: Request) {
 
       const tracksRes = await db.execute('SELECT DISTINCT track_name FROM laps WHERE is_valid = 1 ORDER BY track_name ASC');
 
-      const trackClause = trackFilter !== 'ALL' ? 'AND l.track_name = ?' : '';
-      const trackArgs = trackFilter !== 'ALL' ? [trackFilter] : [];
+      const trackOnlyClause = trackFilter !== 'ALL' ? 'AND l.track_name = ?' : '';
+      const trackOnlyArgs = trackFilter !== 'ALL' ? [trackFilter] : [];
 
       const carsRes = await db.execute({
         sql: `
           SELECT DISTINCT l.car_model
           FROM laps l
-          WHERE l.is_valid = 1 AND l.lap_time_ms > 0 AND l.car_model IS NOT NULL AND TRIM(l.car_model) != '' ${trackClause}
+          WHERE l.is_valid = 1 AND l.lap_time_ms > 0 AND l.car_model IS NOT NULL AND TRIM(l.car_model) != '' ${trackOnlyClause}
           ORDER BY l.car_model ASC
         `,
-        args: trackArgs
+        args: trackOnlyArgs
       });
       const availableCars = (carsRes.rows as any[]).map((r) => String(r.car_model));
 
-      const conditions: string[] = ['l.is_valid = 1', 'l.lap_time_ms > 0'];
-      const args: any[] = [];
-      if (trackFilter !== 'ALL') {
-        conditions.push('l.track_name = ?');
-        args.push(trackFilter);
-      }
+      let filterClause = trackOnlyClause;
+      const args: any[] = [...trackOnlyArgs];
       if (carFilter !== 'ALL') {
-        conditions.push('l.car_model = ?');
+        filterClause += ' AND l.car_model = ?';
         args.push(carFilter);
       }
-      const whereClause = conditions.join(' AND ');
 
       const leaderboardRes = await db.execute({
         sql: `
@@ -133,7 +141,7 @@ export async function GET(request: Request) {
                 ORDER BY l.lap_time_ms ASC, l.id ASC
               ) as rn
             FROM laps l
-            WHERE ${whereClause}
+            WHERE l.is_valid = 1 AND l.lap_time_ms > 0 ${filterClause}
           )
           SELECT
             driver_guid,
@@ -161,7 +169,7 @@ export async function GET(request: Request) {
           (SELECT car_model FROM session_results WHERE session_id = s.id AND position = 1 LIMIT 1) as winner_car
         FROM sessions s
         ORDER BY s.played_at DESC, s.id DESC
-        LIMIT 250
+        LIMIT 45
       `);
 
       const trackRecordsRes = await db.execute(`
@@ -193,7 +201,6 @@ export async function GET(request: Request) {
         WHERE rn = 1
         ORDER BY track_name ASC
       `);
-
       const trackBestSectorsRes = await db.execute(`
         SELECT
           track_name,
@@ -231,10 +238,7 @@ export async function GET(request: Request) {
         drivers: driversRes.rows
       };
 
-      dashboardCache.set(cacheKey, {
-        data: basePayload,
-        expiresAt: Date.now() + CACHE_TTL_MS
-      });
+      setCacheBounded(cacheKey, basePayload);
 
       return NextResponse.json({
         ...basePayload,
@@ -350,6 +354,40 @@ export async function GET(request: Request) {
       });
       const session = sessRes.rows[0] as any;
 
+      let relatedSessions: any[] = session ? [session] : [];
+      if (session) {
+        const nearbyRes = await db.execute({
+          sql: `
+            SELECT id, session_type, played_at
+            FROM sessions
+            WHERE server_name = ? AND track_name = ?
+            ORDER BY played_at DESC, id DESC
+            LIMIT 12
+          `,
+          args: [session.server_name, session.track_name]
+        });
+        const baseTime = Date.parse(String(session.played_at || '')) || 0;
+        const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+        const byKind = new Map<string, any>();
+        for (const ns of nearbyRes.rows as any[]) {
+          const tDiff = Math.abs((Date.parse(String(ns.played_at || '')) || 0) - baseTime);
+          if (tDiff <= THREE_HOURS_MS) {
+            const raw = String(ns.session_type || '').toLowerCase();
+            const k = raw.includes('race') || raw.includes('gara')
+              ? 'RACE'
+              : raw.includes('qual')
+              ? 'QUALIFY'
+              : raw.includes('warm')
+              ? 'WARMUP'
+              : 'PRACTICE';
+            if (!byKind.has(k) || Number(ns.id) === Number(session.id)) {
+              byKind.set(k, ns);
+            }
+          }
+        }
+        relatedSessions = Array.from(byKind.values());
+      }
+
       const resultsRes = await db.execute({
         sql: 'SELECT * FROM session_results WHERE session_id = ? ORDER BY position ASC',
         args: [Number(sessionId)]
@@ -396,7 +434,7 @@ export async function GET(request: Request) {
         }));
       }
 
-      return NextResponse.json({ session, results: enrichedResults, laps });
+      return NextResponse.json({ session, relatedSessions, results: enrichedResults, laps });
     }
 
     return NextResponse.json({ error: 'Richiesta non valida' }, { status: 400 });
