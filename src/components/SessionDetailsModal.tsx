@@ -63,6 +63,27 @@ export function SessionDetailsModal({
     return lang === 'en' ? 'PRACTICE' : 'PRATICA';
   };
 
+  const getTabClasses = (kind: TabKind, isSelected: boolean) => {
+    if (kind === 'RACE') {
+      return isSelected
+        ? 'bg-red-500/25 text-red-300 border-red-500 ring-1 ring-red-500/50 shadow-sm shadow-red-900/40'
+        : 'bg-red-500/10 text-red-400/80 border-red-500/30 hover:bg-red-500/20 hover:text-red-300';
+    }
+    if (kind === 'QUALIFY') {
+      return isSelected
+        ? 'bg-amber-500/25 text-amber-300 border-amber-500 ring-1 ring-amber-500/50 shadow-sm shadow-amber-900/40'
+        : 'bg-amber-500/10 text-amber-400/80 border-amber-500/30 hover:bg-amber-500/20 hover:text-amber-300';
+    }
+    if (kind === 'WARMUP') {
+      return isSelected
+        ? 'bg-purple-500/25 text-purple-300 border-purple-500 ring-1 ring-purple-500/50 shadow-sm shadow-purple-900/40'
+        : 'bg-purple-500/10 text-purple-400/80 border-purple-500/30 hover:bg-purple-500/20 hover:text-purple-300';
+    }
+    return isSelected
+      ? 'bg-sky-500/25 text-sky-300 border-sky-500 ring-1 ring-sky-500/50 shadow-sm shadow-sky-900/40'
+      : 'bg-sky-500/10 text-sky-400/80 border-sky-500/30 hover:bg-sky-500/20 hover:text-sky-300';
+  };
+
   const sessCat = normalizeSessionCategory(selectedSession?.session?.session_type);
   const isRace = sessCat === 'Race';
   const isQualy = sessCat === 'Qualifying';
@@ -97,7 +118,7 @@ export function SessionDetailsModal({
         </div>
 
         {availableTabs.length > 0 && (
-          <div className="px-4 pt-3 pb-2 bg-[#0e1118] border-b border-gray-800 flex items-center gap-2 flex-wrap">
+          <div className="px-4 pt-3 pb-2.5 bg-[#0e1118] border-b border-gray-800 flex items-center gap-2 flex-wrap">
             {availableTabs.map(({ kind, session: tabSess }) => {
               const isSelected = Number(tabSess.id) === Number(activeId || selectedSession?.session?.id);
               return (
@@ -109,18 +130,14 @@ export function SessionDetailsModal({
                     setActiveId(Number(tabSess.id));
                     if (onSwitchSession) onSwitchSession(Number(tabSess.id));
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wider transition cursor-pointer ${
-                    isSelected
-                      ? 'bg-red-600 text-white shadow-md shadow-red-900/40'
-                      : 'bg-[#131720] text-gray-400 border border-gray-800 hover:text-white hover:border-gray-700'
-                  }`}
+                  className={`px-3 py-1 rounded-md border text-[11px] font-extrabold uppercase tracking-wider transition cursor-pointer ${getTabClasses(kind, isSelected)}`}
                 >
                   {getTabLabel(kind)}
                 </button>
               );
             })}
             {loadingSession && (
-              <span className="inline-flex items-center gap-1.5 text-xs text-red-400 font-semibold ml-2">
+              <span className="inline-flex items-center gap-1.5 text-xs text-gray-400 font-semibold ml-2">
                 <Activity className="w-3.5 h-3.5 animate-spin" />
               </span>
             )}
