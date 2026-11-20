@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Calendar, ChevronRight } from 'lucide-react';
 import { TrackPreview, formatLocalDateTime } from '@/lib/evoUtils';
 import { useLanguage } from '@/context/LanguageContext';
@@ -31,6 +31,24 @@ function detectSessionKind(rawType?: string): SessionKind {
   return 'PRACTICE';
 }
 
+const KIND_PRIORITY: Record<SessionKind, number> = {
+  PRACTICE: 1,
+  QUALIFY: 2,
+  WARMUP: 3,
+  RACE: 4,
+};
+
+interface GroupedEvent {
+  key: string;
+  server_name: string;
+  track_name: string;
+  played_at: string;
+  driver_count: number;
+  sessions: any[];
+  primarySession: any;
+  primaryKind: SessionKind;
+}
+
 export function SessionsSection({
   tracks,
   sessions,
@@ -54,12 +72,67 @@ export function SessionsSection({
           new Set((sessions || []).map((s: any) => s.track_name).filter(Boolean))
         ).sort() as string[]);
 
-  const filteredSessions = (sessions || []).filter((s: any) => {
-    const matchTrack = selectedSessionTrack === 'ALL' || s.track_name === selectedSessionTrack;
-    const kind = detectSessionKind(s.session_type);
-    const matchType = selectedSessionType === 'ALL' || kind === selectedSessionType;
-    return matchTrack && matchType;
-  });
+  const groupedEvents = useMemo(() => {
+    const sorted = [...(sessions || [])].sort((a, b) => {
+      const ta = Date.parse(String(a.played_at || '')) || 0;
+      const tb = Date.parse(String(b.played_at || '')) || 0;
+      return tb !== ta ? tb - ta : Number(b.id) - Number(a.id);
+    });
+
+    const events: GroupedEvent[] = [];
+    const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+
+    for (const s of sorted) {
+      const kind = detectSessionKind(s.session_type);
+      const sTime = Date.parse(String(s.played_at || '')) || 0;
+      const last = events[events.length - 1];
+
+      const canMerge =
+        last &&
+        last.server_name === s.server_name &&
+        last.track_name === s.track_name &&
+        !last.sessions.some((existing) => detectSessionKind(existing.session_type) === kind) &&
+        Math.abs((Date.parse(String(last.played_at || '')) || 0) - sTime) <= THREE_HOURS_MS;
+
+      if (canMerge) {
+        last.sessions.push(s);
+        last.driver_count = Math.max(Number(last.driver_count || 0), Number(s.driver_count || 0));
+      } else {
+        events.push({
+          key: `evt-${s.id}`,
+          server_name: s.server_name,
+          track_name: s.track_name,
+          played_at: s.played_at,
+          driver_count: Number(s.driver_count || 0),
+          sessions: [s],
+          primarySession: s,
+          primaryKind: kind,
+        });
+      }
+    }
+
+    for (const ev of events) {
+      ev.sessions.sort(
+        (a, b) => KIND_PRIORITY[detectSessionKind(a.session_type)] - KIND_PRIORITY[detectSessionKind(b.session_type)]
+      );
+      const best = [...ev.sessions].sort(
+        (a, b) => KIND_PRIORITY[detectSessionKind(b.session_type)] - KIND_PRIORITY[detectSessionKind(a.session_type)]
+      )[0];
+      ev.primarySession = best;
+      ev.primaryKind = detectSessionKind(best.session_type);
+    }
+
+    return events;
+  }, [sessions]);
+  const filteredEvents = groupedEvents
+    .filter((ev) => {
+      const matchTrack = selectedSessionTrack === 'ALL' || ev.track_name === selectedSessionTrack;
+      const matchType =
+        selectedSessionType === 'ALL' ||
+        ev.sessions.some((s) => detectSessionKind(s.session_type) === selectedSessionType);
+      return matchTrack && matchType;
+    })
+    .slice(0, 20);
 
   const filterButtons = [
     { id: 'ALL', label: t.sessions.filters.ALL },
@@ -153,46 +226,58 @@ export function SessionsSection({
         </div>
 
         <div className="divide-y divide-gray-800/70">
-          {filteredSessions.map((s: any) => {
-            const kind = detectSessionKind(s.session_type);
-            const badge = getBadgeProps(kind);
+          {filteredEvents.map((ev) => {
+            const targetSession =
+              selectedSessionType !== 'ALL'
+                ? ev.sessions.find((s) => detectSessionKind(s.session_type) === selectedSessionType) || ev.primarySession
+                : ev.primarySession;
+            const targetKind = detectSessionKind(targetSession.session_type);
 
             return (
               <div
-                key={s.id}
-                onClick={() => onOpenSession(s.id)}
+                key={ev.key}
+                onClick={() => onOpenSession(targetSession.id)}
                 className="p-4 hover:bg-gray-800/30 transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <TrackPreview trackName={s.track_name} className="w-16 h-10 shrink-0" />
-                  <span
-                    className={`px-2.5 py-0.5 rounded border text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${badge.cls}`}
-                  >
-                    {badge.label}
-                  </span>
+                  <TrackPreview trackName={ev.track_name} className="w-16 h-10 shrink-0" />
                   <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                      {ev.sessions.map((sub) => {
+                        const subKind = detectSessionKind(sub.session_type);
+                        const badge = getBadgeProps(subKind);
+                        return (
+                          <span
+                            key={sub.id}
+                            className={`px-2 py-0.5 rounded border text-[10px] font-extrabold uppercase tracking-wider ${badge.cls}`}
+                          >
+                            {badge.label}
+                          </span>
+                        );
+                      })}
+                    </div>
                     <div className="text-sm font-bold text-white truncate">
-                      {s.track_name}{' '}
-                      <span className="font-normal text-gray-400">({s.server_name})</span>
+                      {ev.track_name}{' '}
+                      <span className="font-normal text-gray-400">({ev.server_name})</span>
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
-                      {lang === 'en' ? 'Date' : 'Data'}: {formatLocalDateTime(s.played_at)} •{' '}
+                      {lang === 'en' ? 'Date' : 'Data'}: {formatLocalDateTime(ev.played_at)} •{' '}
                       {t.sessions.participants}:{' '}
-                      <strong className="text-gray-300">{s.driver_count}</strong>
+                      <strong className="text-gray-300">{ev.driver_count}</strong>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 shrink-0">
-                  {s.winner_name && (
+                  {targetSession.winner_name && (
                     <div className="text-right">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                        {getRightHeaderLabel(kind)}
+                        {getRightHeaderLabel(targetKind)}
                       </div>
-                      <div className="text-sm font-bold text-white">{s.winner_name}</div>
-                      {s.winner_car && (
+                      <div className="text-sm font-bold text-white">{targetSession.winner_name}</div>
+                      {targetSession.winner_car && (
                         <div className="text-[11px] text-gray-400" onClick={(e) => e.stopPropagation()}>
-                          <CarHoverPreview carName={s.winner_car} showIcon={false} />
+                          <CarHoverPreview carName={targetSession.winner_car} showIcon={false} />
                         </div>
                       )}
                     </div>
@@ -203,7 +288,7 @@ export function SessionsSection({
             );
           })}
 
-          {filteredSessions.length === 0 && (
+          {filteredEvents.length === 0 && (
             <div className="py-10 text-center text-sm text-gray-500">{t.sessions.empty}</div>
           )}
         </div>
@@ -215,6 +300,7 @@ export function SessionsSection({
         onCloseSession={onCloseSession}
         expandedDriverGuid={expandedDriverGuid}
         onToggleDriverLaps={onToggleDriverLaps}
+        onSwitchSession={onOpenSession}
       />
     </>
   );
