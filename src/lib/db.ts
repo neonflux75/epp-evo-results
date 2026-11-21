@@ -103,8 +103,10 @@ export async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS idx_laps_track_valid ON laps(track_name, is_valid, lap_time_ms);
     CREATE INDEX IF NOT EXISTS idx_laps_track_car_valid ON laps(track_name, car_model, is_valid, lap_time_ms);
     CREATE INDEX IF NOT EXISTS idx_laps_driver ON laps(driver_guid);
+    CREATE INDEX IF NOT EXISTS idx_laps_driver_valid_time ON laps(driver_guid, is_valid, lap_time_ms);
     CREATE INDEX IF NOT EXISTS idx_laps_session ON laps(session_id);
     CREATE INDEX IF NOT EXISTS idx_session_results_session ON session_results(session_id);
+    CREATE INDEX IF NOT EXISTS idx_session_results_driver_pos ON session_results(driver_guid, position);
     CREATE INDEX IF NOT EXISTS idx_sessions_played_at ON sessions(played_at DESC, id DESC);
   `);
 
