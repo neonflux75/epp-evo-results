@@ -1,21 +1,23 @@
 import { NextResponse } from 'next/server';
 import db, { ensureSchema } from '@/lib/db';
 
-const dashboardCache = new Map<string, { data: any; expiresAt: number }>();
-const CACHE_TTL_MS = 30000;
-const MAX_CACHE_ENTRIES = 6;
+const filterCache = new Map<string, { data: any; expiresAt: number }>();
+let staticCache: { data: any; expiresAt: number } | null = null;
+const FILTER_TTL_MS = 60000;
+const STATIC_TTL_MS = 180000;
+const MAX_FILTER_ENTRIES = 12;
 let viewersTableReady = false;
 
-function setCacheBounded(key: string, data: any) {
+function setFilterCacheBounded(key: string, data: any) {
   const now = Date.now();
-  for (const [k, v] of dashboardCache.entries()) {
-    if (now >= v.expiresAt) dashboardCache.delete(k);
+  for (const [k, v] of filterCache.entries()) {
+    if (now >= v.expiresAt) filterCache.delete(k);
   }
-  if (dashboardCache.size >= MAX_CACHE_ENTRIES) {
-    const oldestKey = dashboardCache.keys().next().value;
-    if (oldestKey) dashboardCache.delete(oldestKey);
+  if (filterCache.size >= MAX_FILTER_ENTRIES) {
+    const oldestKey = filterCache.keys().next().value;
+    if (oldestKey) filterCache.delete(oldestKey);
   }
-  dashboardCache.set(key, { data, expiresAt: now + CACHE_TTL_MS });
+  filterCache.set(key, { data, expiresAt: now + FILTER_TTL_MS });
 }
 
 async function trackAndCountViewers(viewerId: string | null): Promise<number> {
@@ -61,12 +63,114 @@ async function trackAndCountViewers(viewerId: string | null): Promise<number> {
   }
 }
 
+async function getStaticDashboardData() {
+  const now = Date.now();
+  if (staticCache && now < staticCache.expiresAt) {
+    return staticCache.data;
+  }
+
+  const tracksRes = await db.execute('SELECT DISTINCT track_name FROM laps WHERE is_valid = 1 ORDER BY track_name ASC');
+
+  const sessionsRes = await db.execute(`
+    SELECT s.*,
+      w.driver_name as winner_name,
+      w.car_model as winner_car
+    FROM (
+      SELECT * FROM sessions
+      ORDER BY played_at DESC, id DESC
+      LIMIT 45
+    ) s
+    LEFT JOIN session_results w ON w.session_id = s.id AND w.position = 1
+    ORDER BY s.played_at DESC, s.id DESC
+  `);
+
+  const trackRecordsRes = await db.execute(`
+    SELECT DISTINCT ON (track_name)
+      track_name,
+      track_layout,
+      driver_name,
+      nation,
+      car_model,
+      lap_time_ms as record_ms,
+      recorded_at
+    FROM laps
+    WHERE is_valid = 1 AND lap_time_ms > 0
+    ORDER BY track_name ASC, lap_time_ms ASC, id ASC
+  `);
+
+  const trackBestSectorsRes = await db.execute(`
+    SELECT
+      track_name,
+      MIN(NULLIF(sector_1_ms, 0)) as best_s1,
+      MIN(NULLIF(sector_2_ms, 0)) as best_s2,
+      MIN(NULLIF(sector_3_ms, 0)) as best_s3
+    FROM laps
+    WHERE is_valid = 1 AND lap_time_ms > 0
+    GROUP BY track_name
+  `);
+
+  const driversRes = await db.execute(`
+    WITH DriverStats AS (
+      SELECT
+        driver_guid,
+        MAX(driver_name) as driver_name,
+        MAX(nation) as nation,
+        COUNT(id) as total_laps,
+        SUM(CASE WHEN is_valid = 1 THEN 1 ELSE 0 END) as valid_laps
+      FROM laps
+      GROUP BY driver_guid
+    ),
+    DriverBest AS (
+      SELECT DISTINCT ON (driver_guid)
+        driver_guid,
+        lap_time_ms as best_ever_ms,
+        recorded_at as best_recorded_at
+      FROM laps
+      WHERE is_valid = 1 AND lap_time_ms > 0
+      ORDER BY driver_guid, lap_time_ms ASC, id ASC
+    ),
+    DriverWins AS (
+      SELECT
+        sr.driver_guid,
+        COUNT(*) as wins
+      FROM session_results sr
+      JOIN sessions s ON sr.session_id = s.id
+      WHERE sr.position = 1 AND LOWER(s.session_type) LIKE '%race%'
+      GROUP BY sr.driver_guid
+    )
+    SELECT
+      ds.driver_guid,
+      ds.driver_name,
+      ds.nation,
+      ds.total_laps,
+      ds.valid_laps,
+      dbest.best_ever_ms,
+      dbest.best_recorded_at,
+      COALESCE(dw.wins, 0) as wins
+    FROM DriverStats ds
+    LEFT JOIN DriverBest dbest ON dbest.driver_guid = ds.driver_guid
+    LEFT JOIN DriverWins dw ON dw.driver_guid = ds.driver_guid
+    ORDER BY LOWER(TRIM(ds.driver_name)) ASC
+  `);
+
+  const data = {
+    tracks: tracksRes.rows,
+    sessions: sessionsRes.rows,
+    trackRecords: trackRecordsRes.rows,
+    trackBestSectors: trackBestSectorsRes.rows,
+    drivers: driversRes.rows
+  };
+
+  staticCache = { data, expiresAt: now + STATIC_TTL_MS };
+  return data;
+}
 export async function GET(request: Request) {
   try {
     await ensureSchema();
     const { searchParams } = new URL(request.url);
     const trackFilter = searchParams.get('track') || 'ALL';
     const carFilter = searchParams.get('car') || 'ALL';
+    const lightOnly = searchParams.get('light') === '1';
     const sessionId = searchParams.get('sessionId');
     const eventIdsParam = searchParams.get('eventIds');
     const driverGuid = searchParams.get('driverGuid');
@@ -75,10 +179,88 @@ export async function GET(request: Request) {
     if (!sessionId && !driverGuid) {
       const onlineViewers = await trackAndCountViewers(viewerId);
       const cacheKey = `${trackFilter}::${carFilter}`;
-      const cached = dashboardCache.get(cacheKey);
-      if (cached && Date.now() < cached.expiresAt) {
+      const cachedFilter = filterCache.get(cacheKey);
+
+      let filteredData: { availableCars: string[]; leaderboard: any[] };
+      if (cachedFilter && Date.now() < cachedFilter.expiresAt) {
+        filteredData = cachedFilter.data;
+      } else {
+        const trackOnlyClause = trackFilter !== 'ALL' ? 'AND l.track_name = ?' : '';
+        const trackOnlyArgs = trackFilter !== 'ALL' ? [trackFilter] : [];
+
+        const carsRes = await db.execute({
+          sql: `
+            SELECT DISTINCT l.car_model
+            FROM laps l
+            WHERE l.is_valid = 1 AND l.lap_time_ms > 0 AND l.car_model IS NOT NULL AND TRIM(l.car_model) != '' ${trackOnlyClause}
+            ORDER BY l.car_model ASC
+          `,
+          args: trackOnlyArgs
+        });
+        const availableCars = (carsRes.rows as any[]).map((r) => String(r.car_model));
+
+        let filterClause = trackOnlyClause;
+        const args: any[] = [...trackOnlyArgs];
+        if (carFilter !== 'ALL') {
+          filterClause += ' AND l.car_model = ?';
+          args.push(carFilter);
+        }
+
+        const partitionCols =
+          carFilter === 'ALL' ? 'l.driver_guid, l.track_name' : 'l.driver_guid, l.car_model, l.track_name';
+
+        const leaderboardRes = await db.execute({
+          sql: `
+            WITH RankedLaps AS (
+              SELECT
+                l.driver_guid,
+                l.driver_name,
+                l.nation,
+                l.car_model,
+                l.track_name,
+                l.track_layout,
+                l.lap_time_ms as best_lap_ms,
+                l.sector_1_ms,
+                l.sector_2_ms,
+                l.sector_3_ms,
+                l.recorded_at as last_set,
+                ROW_NUMBER() OVER (
+                  PARTITION BY ${partitionCols}
+                  ORDER BY l.lap_time_ms ASC, l.id ASC
+                ) as rn
+              FROM laps l
+              WHERE l.is_valid = 1 AND l.lap_time_ms > 0 ${filterClause}
+            )
+            SELECT
+              driver_guid,
+              driver_name,
+              nation,
+              car_model,
+              track_name,
+              track_layout,
+              best_lap_ms,
+              sector_1_ms,
+              sector_2_ms,
+              sector_3_ms,
+              last_set
+            FROM RankedLaps
+            WHERE rn = 1
+            ORDER BY best_lap_ms ASC
+            LIMIT 100
+          `,
+          args
+        });
+
+        filteredData = {
+          availableCars,
+          leaderboard: leaderboardRes.rows
+        };
+        setFilterCacheBounded(cacheKey, filteredData);
+      }
+
+      if (lightOnly) {
         return NextResponse.json({
-          ...cached.data,
+          ...filteredData,
           onlineViewers
         });
       }
@@ -100,155 +282,15 @@ export async function GET(request: Request) {
         }
       } catch (e) {}
 
-      const tracksRes = await db.execute('SELECT DISTINCT track_name FROM laps WHERE is_valid = 1 ORDER BY track_name ASC');
-
-      const trackOnlyClause = trackFilter !== 'ALL' ? 'AND l.track_name = ?' : '';
-      const trackOnlyArgs = trackFilter !== 'ALL' ? [trackFilter] : [];
-
-      const carsRes = await db.execute({
-        sql: `
-          SELECT DISTINCT l.car_model
-          FROM laps l
-          WHERE l.is_valid = 1 AND l.lap_time_ms > 0 AND l.car_model IS NOT NULL AND TRIM(l.car_model) != '' ${trackOnlyClause}
-          ORDER BY l.car_model ASC
-        `,
-        args: trackOnlyArgs
-      });
-      const availableCars = (carsRes.rows as any[]).map((r) => String(r.car_model));
-
-      let filterClause = trackOnlyClause;
-      const args: any[] = [...trackOnlyArgs];
-      if (carFilter !== 'ALL') {
-        filterClause += ' AND l.car_model = ?';
-        args.push(carFilter);
-      }
-
-      const leaderboardRes = await db.execute({
-        sql: `
-          WITH RankedLaps AS (
-            SELECT
-              l.driver_guid,
-              l.driver_name,
-              l.nation,
-              l.car_model,
-              l.track_name,
-              l.track_layout,
-              l.lap_time_ms as best_lap_ms,
-              l.sector_1_ms,
-              l.sector_2_ms,
-              l.sector_3_ms,
-              l.recorded_at as last_set,
-              ROW_NUMBER() OVER (
-                PARTITION BY l.driver_guid, l.car_model, l.track_name
-                ORDER BY l.lap_time_ms ASC, l.id ASC
-              ) as rn
-            FROM laps l
-            WHERE l.is_valid = 1 AND l.lap_time_ms > 0 ${filterClause}
-          )
-          SELECT
-            driver_guid,
-            driver_name,
-            nation,
-            car_model,
-            track_name,
-            track_layout,
-            best_lap_ms,
-            sector_1_ms,
-            sector_2_ms,
-            sector_3_ms,
-            last_set
-          FROM RankedLaps
-          WHERE rn = 1
-          ORDER BY best_lap_ms ASC
-          LIMIT 100
-        `,
-        args
-      });
-
-      const sessionsRes = await db.execute(`
-        SELECT s.*,
-          (SELECT driver_name FROM session_results WHERE session_id = s.id AND position = 1 LIMIT 1) as winner_name,
-          (SELECT car_model FROM session_results WHERE session_id = s.id AND position = 1 LIMIT 1) as winner_car
-        FROM sessions s
-        ORDER BY s.played_at DESC, s.id DESC
-        LIMIT 45
-      `);
-
-      const trackRecordsRes = await db.execute(`
-        WITH RankedTrackLaps AS (
-          SELECT
-            track_name,
-            track_layout,
-            driver_name,
-            nation,
-            car_model,
-            lap_time_ms as record_ms,
-            recorded_at,
-            ROW_NUMBER() OVER (
-              PARTITION BY track_name
-              ORDER BY lap_time_ms ASC, id ASC
-            ) as rn
-          FROM laps
-          WHERE is_valid = 1 AND lap_time_ms > 0
-        )
-        SELECT
-          track_name,
-          track_layout,
-          driver_name,
-          nation,
-          car_model,
-          record_ms,
-          recorded_at
-        FROM RankedTrackLaps
-        WHERE rn = 1
-        ORDER BY track_name ASC
-      `);
-
-      const trackBestSectorsRes = await db.execute(`
-        SELECT
-          track_name,
-          MIN(CASE WHEN sector_1_ms > 0 THEN sector_1_ms ELSE NULL END) as best_s1,
-          MIN(CASE WHEN sector_2_ms > 0 THEN sector_2_ms ELSE NULL END) as best_s2,
-          MIN(CASE WHEN sector_3_ms > 0 THEN sector_3_ms ELSE NULL END) as best_s3
-        FROM laps
-        WHERE is_valid = 1 AND lap_time_ms > 0
-        GROUP BY track_name
-      `);
-
-      const driversRes = await db.execute(`
-        SELECT
-          l.driver_guid,
-          l.driver_name,
-          MAX(l.nation) as nation,
-          COUNT(l.id) as total_laps,
-          SUM(CASE WHEN l.is_valid = 1 THEN 1 ELSE 0 END) as valid_laps,
-          MIN(CASE WHEN l.is_valid = 1 AND l.lap_time_ms > 0 THEN l.lap_time_ms ELSE NULL END) as best_ever_ms,
-          (SELECT recorded_at FROM laps l2 WHERE l2.driver_guid = l.driver_guid AND l2.is_valid = 1 AND l2.lap_time_ms > 0 ORDER BY l2.lap_time_ms ASC, l2.id ASC LIMIT 1) as best_recorded_at,
-          (SELECT COUNT(*) FROM session_results sr JOIN sessions s ON sr.session_id = s.id WHERE sr.driver_guid = l.driver_guid AND sr.position = 1 AND LOWER(s.session_type) LIKE '%race%') as wins
-        FROM laps l
-        GROUP BY l.driver_guid, l.driver_name
-        ORDER BY LOWER(TRIM(l.driver_name)) ASC
-      `);
-
-      const basePayload = {
-        liveServers,
-        tracks: tracksRes.rows,
-        availableCars,
-        leaderboard: leaderboardRes.rows,
-        sessions: sessionsRes.rows,
-        trackRecords: trackRecordsRes.rows,
-        trackBestSectors: trackBestSectorsRes.rows,
-        drivers: driversRes.rows
-      };
-
-      setCacheBounded(cacheKey, basePayload);
+      const staticData = await getStaticDashboardData();
 
       return NextResponse.json({
-        ...basePayload,
+        liveServers,
+        ...staticData,
+        ...filteredData,
         onlineViewers
       });
     }
-
     if (driverGuid) {
       const driverInfoRes = await db.execute({
         sql: `
@@ -314,9 +356,9 @@ export async function GET(request: Request) {
             r.sector_2_ms,
             r.sector_3_ms,
             r.recorded_at,
-            (SELECT MIN(sector_1_ms) FROM laps WHERE track_name = r.track_name AND is_valid = 1 AND sector_1_ms > 0) as track_best_s1,
-            (SELECT MIN(sector_2_ms) FROM laps WHERE track_name = r.track_name AND is_valid = 1 AND sector_2_ms > 0) as track_best_s2,
-            (SELECT MIN(sector_3_ms) FROM laps WHERE track_name = r.track_name AND is_valid = 1 AND sector_3_ms > 0) as track_best_s3,
+            (SELECT MIN(NULLIF(sector_1_ms, 0)) FROM laps WHERE track_name = r.track_name AND is_valid = 1) as track_best_s1,
+            (SELECT MIN(NULLIF(sector_2_ms, 0)) FROM laps WHERE track_name = r.track_name AND is_valid = 1) as track_best_s2,
+            (SELECT MIN(NULLIF(sector_3_ms, 0)) FROM laps WHERE track_name = r.track_name AND is_valid = 1) as track_best_s3,
             (
               SELECT COUNT(*) + 1
               FROM AllBestOverallTrack o
