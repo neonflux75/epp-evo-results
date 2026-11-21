@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Trophy, Flag, Users, Timer, Activity } from 'lucide-react';
 import { setCookie, getCookie } from '@/lib/evoUtils';
 import { useLanguage, LanguageSwitcher } from '@/context/LanguageContext';
@@ -29,6 +29,8 @@ export default function EvoResultsDashboard() {
   const [selectedDriverProfile, setSelectedDriverProfile] = useState<any>(null);
   const [loadingDriverProfile, setLoadingDriverProfile] = useState(false);
 
+  const hasInitialLoadRef = useRef(false);
+
   useEffect(() => {
     const t = getCookie('evo_active_tab');
     if (t === 'leaderboard' || t === 'sessions' || t === 'records' || t === 'drivers') setActiveTab(t);
@@ -49,11 +51,14 @@ export default function EvoResultsDashboard() {
     return id;
   };
 
-  const fetchDashboard = async (track = selectedTrack, car = selectedCar) => {
+  const fetchDashboard = async (track = selectedTrack, car = selectedCar, lightOnly = false) => {
     try {
       const vId = getViewerId();
       const carParam = car && car !== 'ALL' ? `&car=${encodeURIComponent(car)}` : '';
-      const res = await fetch(`/api/dashboard?viewerId=${encodeURIComponent(vId)}${track ? `&track=${encodeURIComponent(track)}` : ''}${carParam}`);
+      const lightParam = lightOnly ? '&light=1' : '';
+      const res = await fetch(
+        `/api/dashboard?viewerId=${encodeURIComponent(vId)}${track ? `&track=${encodeURIComponent(track)}` : ''}${carParam}${lightParam}`
+      );
       const json = await res.json();
       if (json.tracks?.length > 0) {
         const exists = json.tracks.some((t: any) => t.track_name === track);
@@ -62,18 +67,23 @@ export default function EvoResultsDashboard() {
           setSelectedTrack(rnd);
           setCookie('evo_top100_track', rnd);
           const r2 = await fetch(`/api/dashboard?viewerId=${encodeURIComponent(vId)}&track=${encodeURIComponent(rnd)}`);
-          setData(await r2.json());
+          const j2 = await r2.json();
+          hasInitialLoadRef.current = true;
+          setData(j2);
           return;
         }
       }
-      setData(json);
-    } catch (e) { console.error(e); }
+      hasInitialLoadRef.current = true;
+      setData((prev: any) => (lightOnly && prev ? { ...prev, ...json } : json));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => {
     if (!cookiesLoaded) return;
-    fetchDashboard(selectedTrack, selectedCar);
-    const iv = setInterval(() => fetchDashboard(selectedTrack, selectedCar), 30000);
+    fetchDashboard(selectedTrack, selectedCar, hasInitialLoadRef.current);
+    const iv = setInterval(() => fetchDashboard(selectedTrack, selectedCar, false), 30000);
     return () => clearInterval(iv);
   }, [selectedTrack, selectedCar, cookiesLoaded]);
 
